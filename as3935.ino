@@ -12,17 +12,125 @@ volatile INT8U  isrFlag = 0;
  *
  *********************************************************************/
 void setup(void) {
+  REG_u reg;
+  int i;
+  int n;
+  byte err;
   
   Wire.begin();
+  Serial.begin(115200);
+  Serial.println("start");
   
-  attachInterrupt(0, as3935_isr, RISING);
+  //attachInterrupt(0, as3935_isr, RISING);
   
   /* Set unit into operation mode */
-  as3935_set_powerdown(1);
+  //as3935_set_powerdown(0);
   
+  
+#if 0
+  for (i=0; i<0x2; i++) {
+    reg.data = 0x24;
+    i2c_write(AS3935_ADDR, (RegisterID_e)0, reg);
+    reg.data = 0x24;
+    i2c_write(AS3935_ADDR, (RegisterID_e)0, reg);
+    reg.data = 0x41;
+    i2c_write(AS3935_ADDR, (RegisterID_e)1, reg);
+    reg.data = 0xC2;
+    i2c_write(AS3935_ADDR, (RegisterID_e)2, reg);
+    reg.data = 0xAA;
+    i2c_write(AS3935_ADDR, (RegisterID_e)4, reg);
+  }
+#endif
+
+  reg = i2c_read(AS3935_ADDR, (RegisterID_e)0x00);
+  reg = i2c_read(AS3935_ADDR, (RegisterID_e)0x09);
+    
   /* Calibrate the unit */
   
 }
+
+
+
+/**********************************************************************
+ *
+ * I2C read routine
+ *
+ *********************************************************************/
+REG_u i2c_read(INT8U add, RegisterID_e reg) {
+  REG_u retval;
+  int   n;
+  byte  err;
+  int i;
+
+  retval.data = 0xff;
+  
+  Serial.print("Reading from register: ");
+  Serial.print(reg);
+  Serial.print(" at address: ");
+  Serial.print(add);
+  
+  // Write word address to read
+  Wire.beginTransmission(add);
+  Wire.write((INT8U)reg);
+  err = Wire.endTransmission(false);
+  switch(err) {
+    case 0: Serial.print(" OK "); break;
+    case 1: Serial.print(" Too Long "); break;
+    case 2: Serial.print(" NACK on add "); break;
+    case 3: Serial.print(" NACK on data "); break;
+    default: Serial.print(" UNK error "); break;
+  }
+  
+  // Read the single byte from the specified word address  
+  Wire.requestFrom((int)add, (int)1);
+  
+  // Make sure we have the byte we needed
+  n = Wire.available();
+  Serial.print("  Got bytes: ");
+  Serial.print(n);
+  
+  if (n != 1) {
+    Serial.println("Invalid number of bytes");
+    return(retval);
+  }
+  
+  // Get the byte
+  retval.data = Wire.read();
+
+  Serial.print(", ");
+  Serial.print(retval.data, HEX);
+  
+  Serial.println("");
+
+
+  return(retval);
+}
+
+/**********************************************************************
+ *
+ * I2C write routine
+ *
+ *********************************************************************/
+void i2c_write(INT8U add, RegisterID_e reg, REG_u val) {
+  byte err;
+  
+  Wire.beginTransmission(add);
+  Wire.write((INT8U)reg);
+  Wire.write(val.data);
+  err = Wire.endTransmission();
+  switch(err) {
+    case 0: Serial.println("OK"); break;
+    case 1: Serial.println("Too Long"); break;
+    case 2: Serial.println("NACK on add"); break;
+    case 3: Serial.println("NACK on data"); break;
+    default: Serial.println("UNK error"); break;
+  }
+
+}
+
+
+
+
 
 /**********************************************************************
  *
@@ -39,6 +147,10 @@ void loop(void) {
     
     delay(2); // Delay claimed by datasheet
     reason = as3935_get_interrupt_reason();
+    
+    Serial.print("ISR: ");
+    Serial.print(reason);
+    Serial.println("");
     
     switch (reason){
       case INT_NOISY:
@@ -57,32 +169,6 @@ void loop(void) {
 
   }
   
-}
-
-/**********************************************************************
- *
- * I2C write routine
- *
- *********************************************************************/
-void i2c_write(INT8U add, RegisterID_e reg, REG_u val) {
-  Wire.beginTransmission(add);
-  Wire.write((INT8U)reg);
-  Wire.write(val.data);
-  Wire.endTransmission();
-}
-
-/**********************************************************************
- *
- * I2C read routine
- *
- *********************************************************************/
-REG_u i2c_read(INT8U add, RegisterID_e register) {
-  REG_u retval;
-  
-  Wire.requestFrom((int)add, (int)1);
-  retval.data = Wire.read();
-  
-  return(retval);
 }
 
 

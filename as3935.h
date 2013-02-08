@@ -1,13 +1,14 @@
 #ifndef __as3935_h
 #define __as3935_h
 
-#define AS3935_ADDR 0x1234   // TBD
+#define AS3935_ADDR 0x00   // For embedded Adventures board
     
 #define AS3935_INDOOR_GAIN       0x12
 #define AS3935_OUTDOOR_GAIN      0x0E
 
 //#define AS3936_RESET_REGISTERS 0x3c
 //#define AS3935_CALIB_RCO       0x3d
+
 
 #define AS3935_INT_NOISE_LEVEL_HIGH 0b00000001
 #define AS3935_INT_DISTURBER        0b00000100
