@@ -22,33 +22,41 @@ void setup(void) {
   Serial.println("start");
   
   //attachInterrupt(0, as3935_isr, RISING);
-  
+  /* Must read a register other than 0 at the start */
+  reg = i2c_read(AS3935_ADDR, (RegisterID_e)0x01);
+ 
   /* Set unit into operation mode */
-  //as3935_set_powerdown(0);
+  as3935_set_powerdown(0);
   
+  as3935_display_responance_freq_on_irq(1);
+  delay(10000);
+  as3935_display_responance_freq_on_irq(0);
   
-#if 0
-  for (i=0; i<0x2; i++) {
-    reg.data = 0x24;
-    i2c_write(AS3935_ADDR, (RegisterID_e)0, reg);
-    reg.data = 0x24;
-    i2c_write(AS3935_ADDR, (RegisterID_e)0, reg);
-    reg.data = 0x41;
-    i2c_write(AS3935_ADDR, (RegisterID_e)1, reg);
-    reg.data = 0xC2;
-    i2c_write(AS3935_ADDR, (RegisterID_e)2, reg);
-    reg.data = 0xAA;
-    i2c_write(AS3935_ADDR, (RegisterID_e)4, reg);
-  }
-#endif
+ 
+  dump(10); 
 
-  reg = i2c_read(AS3935_ADDR, (RegisterID_e)0x00);
-  reg = i2c_read(AS3935_ADDR, (RegisterID_e)0x09);
-    
   /* Calibrate the unit */
   
 }
 
+/**********************************************************************
+ *
+ * Dump registers
+ *
+ *********************************************************************/
+void dump(byte n) {
+  int   i;
+  REG_u reg;
+  
+  for (i=0; i<n; i++) {
+    reg = i2c_read(AS3935_ADDR, (RegisterID_e)i);
+    Serial.print("Reg ");
+    Serial.print(i);
+    Serial.print(" = ");
+    Serial.println(reg.data, HEX);
+  }
+   
+} 
 
 
 /**********************************************************************
@@ -64,21 +72,21 @@ REG_u i2c_read(INT8U add, RegisterID_e reg) {
 
   retval.data = 0xff;
   
-  Serial.print("Reading from register: ");
-  Serial.print(reg);
-  Serial.print(" at address: ");
-  Serial.print(add);
+  //Serial.print("Reading from register: ");
+  //Serial.print(reg);
+  //Serial.print(" at address: ");
+  //Serial.print(add);
   
   // Write word address to read
   Wire.beginTransmission(add);
   Wire.write((INT8U)reg);
   err = Wire.endTransmission(false);
   switch(err) {
-    case 0: Serial.print(" OK "); break;
-    case 1: Serial.print(" Too Long "); break;
-    case 2: Serial.print(" NACK on add "); break;
-    case 3: Serial.print(" NACK on data "); break;
-    default: Serial.print(" UNK error "); break;
+    case 0: break;
+    case 1: Serial.println(" Too Long "); break;
+    case 2: Serial.println(" NACK on add "); break;
+    case 3: Serial.println(" NACK on data "); break;
+    default: Serial.println(" UNK error "); break;
   }
   
   // Read the single byte from the specified word address  
@@ -86,8 +94,8 @@ REG_u i2c_read(INT8U add, RegisterID_e reg) {
   
   // Make sure we have the byte we needed
   n = Wire.available();
-  Serial.print("  Got bytes: ");
-  Serial.print(n);
+  //Serial.print("  Got bytes: ");
+  //Serial.print(n);
   
   if (n != 1) {
     Serial.println("Invalid number of bytes");
@@ -97,11 +105,10 @@ REG_u i2c_read(INT8U add, RegisterID_e reg) {
   // Get the byte
   retval.data = Wire.read();
 
-  Serial.print(", ");
-  Serial.print(retval.data, HEX);
+  //Serial.print(", ");
+  //Serial.print(retval.data, HEX);
   
-  Serial.println("");
-
+  //Serial.println("");
 
   return(retval);
 }

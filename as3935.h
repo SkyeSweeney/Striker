@@ -60,29 +60,30 @@ typedef union _energy {
 } Energy_u;
 
 typedef struct {
-  INT8U reserved:2;
-  INT8U AFE_GB:5;
+  //LSB
   INT8U PWD:1;
+  INT8U AFE_GB:5;
+  INT8U reserved:2;
 } REG00_t;
 
 typedef struct {
-  INT8U reserved:1;
-  INT8U NF_LEV:3;
   INT8U WDTH:4;
+  INT8U NF_LEV:3;
+  INT8U reserved:1;
 } REG01_t;
 
 typedef struct {
-  INT8U reserved:1;
-  INT8U CL_STAT:1;
-  INT8U MIN_NUM_LIGHT:2;
   INT8U SREJ:4;
+  INT8U MIN_NUM_LIGHT:2;
+  INT8U CL_STAT:1;
+  INT8U reserved:1;
 } REG02_t;
 
 typedef struct {
-  INT8U LCO_FDIV:2;
-  INT8U MASK_DIST:1;
-  INT8U reserved:1;
   INT8U INT:4;
+  INT8U reserved:1;
+  INT8U MASK_DIST:1;
+  INT8U LCO_FDIV:2;
 } REG03_t;
 
 typedef struct {
@@ -94,21 +95,21 @@ typedef struct {
 } REG05_t;
 
 typedef struct {
-  INT8U reserved:3;
   INT8U S_LIG_MM:5;
+  INT8U reserved:3;
 } REG06_t;
 
 typedef struct {
-  INT8U reserved:2;
   INT8U DISTANCE:6;
+  INT8U reserved:2;
 } REG07_t;
 
 typedef struct {
-  INT8U DISP_LCO:1;
-  INT8U DISP_SRCO:1;
-  INT8U DISP_TRCO:1;
-  INT8U reserved:1;
   INT8U TUN_CAP:4;
+  INT8U reserved:1;
+  INT8U DISP_TRCO:1;
+  INT8U DISP_SRCO:1;
+  INT8U DISP_LCO:1;
 } REG08_t;
 
 
