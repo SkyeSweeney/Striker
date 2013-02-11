@@ -15,29 +15,94 @@ void setup(void) {
   REG_u reg;
   int i;
   int n;
-  byte err;
+  INT32U err;
   
   Wire.begin();
   Serial.begin(115200);
   Serial.println("start");
   
-  //attachInterrupt(0, as3935_isr, RISING);
+  pinMode(7, OUTPUT);
+  pinMode(6, OUTPUT);
+
   /* Must read a register other than 0 at the start */
   reg = i2c_read(AS3935_ADDR, (RegisterID_e)0x01);
- 
+  
+  /* Attach the ISR */
+  attachInterrupt(0, as3935_isr, RISING);
+  
   /* Set unit into operation mode */
   as3935_set_powerdown(0);
   
-  as3935_display_responance_freq_on_irq(1);
-  delay(10000);
-  as3935_display_responance_freq_on_irq(0);
-  
- 
-  dump(10); 
-
   /* Calibrate the unit */
+  calibrate();
   
 }
+
+
+/**********************************************************************
+ *
+ * Calibrate
+ *
+ *********************************************************************/
+void calibrate(void) {
+  byte   bestTuneValue = 0;
+  byte   bestDivider   = 0;
+  byte   i;
+  INT32U bestCountError = 100000;
+  INT32U err;
+  
+ 
+  /* Put the LCO onto the interrupt pin */
+  as3935_display_responance_freq_on_irq(1);
+
+  /* Antenna should be outputing 500KHz +- 3.5% or 17.5KHz */
+    
+  /* Set the divider */
+  as3935_set_freq_div_ratio(LCO_DIV_16);
+      
+  /* Do for each tuning selection */
+  for (i=0; i<16; i++) {
+    
+    /* Set the tuning selection */
+    as3935_set_tune_cap(i);
+
+    /* Wait for it to setle */
+    delay(10);
+    
+    /* Measure the number of interrupts in a set amount of time */
+    counter = 0;
+    delay(40); /* We should be 500E3 * 0.04/16 or 1250 counts */
+    
+    /* Capture the best value */
+    if (counter > 1250) {
+      err = counter - 1250;
+    } else {
+      err = 1250 - counter;
+    }
+
+    Serial.print("Tune: ");
+    Serial.print(i);
+    Serial.print(" = ");
+    Serial.println(err);
+    
+    if (err < bestCountError) {
+      bestTuneValue = i;
+      bestCountError = err;
+    }
+    
+  } /* Do next tune selection */
+    
+  /* Now set the tune value of the best match */
+  Serial.println(bestTuneValue);
+  as3935_set_tune_cap(bestTuneValue);
+
+  /* Restore interrupt pin to normal */
+  as3935_display_responance_freq_on_irq(0);
+        
+}
+
+
+
 
 /**********************************************************************
  *
@@ -126,7 +191,7 @@ void i2c_write(INT8U add, RegisterID_e reg, REG_u val) {
   Wire.write(val.data);
   err = Wire.endTransmission();
   switch(err) {
-    case 0: Serial.println("OK"); break;
+    case 0: break;
     case 1: Serial.println("Too Long"); break;
     case 2: Serial.println("NACK on add"); break;
     case 3: Serial.println("NACK on data"); break;
@@ -146,20 +211,25 @@ void i2c_write(INT8U add, RegisterID_e reg, REG_u val) {
  *********************************************************************/
 void loop(void) {
   InterruptReason_e reason;
+  static INT32U then=0;
+  INT32U now;
   
   /* If the ISR flag has been set */
   if (isrFlag) {
     
     isrFlag = 0;
     
-    delay(2); // Delay claimed by datasheet
+    delay(2+1); // Delay claimed by datasheet
     reason = as3935_get_interrupt_reason();
     
     Serial.print("ISR: ");
     Serial.print(reason);
-    Serial.println("");
+    Serial.print(" ");
     
     switch (reason){
+      case INT_NONE:
+        Serial.println("None?");
+        break;
       case INT_NOISY:
         Serial.println("Noise");
         break;
@@ -174,6 +244,11 @@ void loop(void) {
         break;
     }
 
+  }
+  now = millis();
+  if (now > then) {
+    Serial.print(".");
+    then = now + 1000;
   }
   
 }
@@ -194,7 +269,6 @@ void as3935_isr(void) {
    */
    
    counter++;
-   
    isrFlag = 1;
 
 }
