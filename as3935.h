@@ -154,10 +154,6 @@ void          as3935_set_freq_div_ratio(LCO_DIV_e div_ratio);
 void          as3935_calibrate(void);
 void          as3935_dump(INT8U n);
 
-INT8U i2c_read(INT8U add, RegisterID_e reg, REG_u *val);
-INT8U i2c_write(INT8U add, RegisterID_e reg, REG_u val);
-
-
 
 #endif
 
