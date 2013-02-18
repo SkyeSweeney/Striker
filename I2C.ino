@@ -4,7 +4,7 @@
  *
  *********************************************************************/
 #include <Wire.h>
-#include "types.h"
+#include "MyTypes.h"
 #include "as3935.h"
 #include "I2C.h"
 
