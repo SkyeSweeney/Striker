@@ -17,6 +17,7 @@
 #include "as3935.h"
 #include "I2C.h"
 
+#define DEBUG
 
 #define SEC_TO_MS  (1000L)
 #define MIN_TO_MS  (1000L*60L)
@@ -35,6 +36,7 @@ volatile INT8U  bitFlag = 0; /* BIT ISR flag */
 INT32U dotTime=0;
 INT32U calTime=0;
 INT32U bitTime=0;
+INT8U             hbCnt;
 
 
 /**********************************************************************
@@ -49,6 +51,12 @@ void setup(void) {
   
   /* Open I2C library */
   Wire.begin();
+  
+  pinMode(7, OUTPUT);
+  pinMode(6, OUTPUT);
+  
+  digitalWrite(6, LOW);
+  digitalWrite(7, LOW);
   
   /* Open serial port */
   Serial.begin(115200);
@@ -71,6 +79,7 @@ void setup(void) {
   calTime = now+1*SEC_TO_MS;   /* First cal to be done in one second */
   bitTime = now+10*SEC_TO_MS;  /* First BIT to be done in 10 seconds */
   
+  
 } /* end setup */
 
 
@@ -84,6 +93,8 @@ void loop(void) {
   INT32U            now;
   INT8U             bitResults;
   INT8U             calResult;
+
+  readTest();
   
   /* If the ISR flag has been set */
   if (isrFlag) {
@@ -98,7 +109,7 @@ void loop(void) {
     switch (reason) {
 
       case INT_NONE:
-        Serial.println("None?");
+        //Serial.println("None?");
         break;
 
       case INT_NOISY:
@@ -132,6 +143,11 @@ void loop(void) {
 
     dotTime = now + 1*SEC_TO_MS;
     Serial.print(".");
+    hbCnt++;
+    if (hbCnt >= 72) {
+      Serial.println("");
+      hbCnt = 0;
+    }
 
   }
 
@@ -139,6 +155,7 @@ void loop(void) {
   if (now > calTime) {
 
     calTime = now + 30*MIN_TO_MS;
+    Serial.println("Calibration starting");
     calResult = calibrate();
 
     /* Process calibration results */
@@ -180,7 +197,7 @@ void normalIsr(void) {
    * We will also increment a counter here for when we perform auto cal.
    */
    
-   isrFlag = 1;
+   //isrFlag = 1;
 }
 
 /**********************************************************************
@@ -201,29 +218,128 @@ void bitIsr(void) {
    bitFlag = 1;
 }
 
+
+/**********************************************************************
+ *
+ *********************************************************************/
+void readTest(void) {
+  INT8U e;
+  REG_u reg, reg8;
+  unsigned long i;
+
+  e = i2c_read(AS3935_ADDR, REG08, &reg8);
+  reg8.R8.DISP_LCO = 1;
+  reg8.R8.TUN_CAP  = 15;
+  e = i2c_write(AS3935_ADDR, REG08, reg8);
+  
+  delay(10);
+
+#if 1
+  for (i=0; i<100000; i++) {
+    
+    // Read a random register
+    //e = i2c_read(AS3935_ADDR, (RegisterID_e)(i%15), &reg);
+    
+    // Read R8 should be 0x8f
+    e = i2c_read(AS3935_ADDR, REG08, &reg8);
+    if ((reg8.data != 0x8f) || (e != 0)) {
+      PORTD = PORTD | 0x80;
+      //digitalWrite(7, HIGH);
+      Serial.print("Read failed: ");
+      Serial.print(reg8.data, HEX);
+      Serial.print(" err:");
+      Serial.print(e);
+      Serial.println("");
+      PORTD = PORTD & ~0x80;
+      //DigitalWrite(7, LOW);
+    } else {
+      PORTD = PORTD | 0x40;
+      PORTD = PORTD & ~0x40;
+    }
+    //Serial.println(e);
+    delay(1);
+  }
+  
+  Serial.println("Test done");
+  for(;;){delay(1);}
+
+#endif
+
+#if 1
+  for (i=0; i<10000 ; i++) {
+    
+    // Write register 8
+    e = i2c_write(AS3935_ADDR, REG08, reg8);
+    
+    // Read it back; Should be 0x8f
+    e = i2c_read(AS3935_ADDR, REG08, &reg8);
+    if (reg8.data != 0x8f) {
+      digitalWrite(7, HIGH);
+      Serial.println(reg8.data, HEX);
+      Serial.println("write/read failed");
+      for(;;){delay(1);}
+      break;
+    }
+    delay(1);
+  }
+#endif
+  
+#if 0
+  for (i=0; i<1000; i++) {
+    e = i2c_read(AS3935_ADDR, REG08, &reg8);
+    reg8.R8.TUN_CAP = i%16;
+    e = i2c_write(AS3935_ADDR, REG08, reg8);
+    e = i2c_read(AS3935_ADDR, REG08, &reg8);
+    if ((reg8.R8.DISP_LCO != 1) || (reg8.R8.TUN_CAP != i%16)) {
+      digitalWrite(7, HIGH);
+      Serial.println(reg8.data, HEX);
+      Serial.println("read/write failed");
+      for(;;){delay(1);}
+      break;
+    }
+    delay(1);
+  }
+#endif
+
+
+  Serial.println("Testing done");
+  
+  for (;;) {
+    delay(1);
+  }
+
+ 
+}
+
+
 /**********************************************************************
  *
  * Calibrate
- *
+ * returns 1 for pass
  *********************************************************************/
 INT8U calibrate(void) {
   INT8U   bestTuneValue = 0;
   INT8U   bestDivider   = 0;
   INT8U   i;
-  INT32U  bestCountError = 100000;
+  INT32U  bestTuneError = 100000;
   INT32U  err;
   INT16U  target;
   INT32U  cnt;
   INT8U   retval;
   
+  digitalWrite(6, HIGH);
+  
   /* Attach the calibration ISR */
+  Serial.println("Install ISR");
   attachInterrupt(0, calIsr, RISING);
- 
-  /* Put the LCO onto the interrupt pin */
-  as3935_display_responance_freq_on_irq(1);
-    
+  
   /* Set the LCO output divider to 16 */
   as3935_set_freq_div_ratio(LCO_DIV_16);
+ 
+  /* Put the LCO onto the interrupt pin */
+  Serial.println("Put LCO on ISR pin");
+  as3935_display_responance_freq_on_irq(1);
+    
 
   /********************************************************************
    * Antenna should be tuned to 500KHz +- 3.5%
@@ -238,13 +354,16 @@ INT8U calibrate(void) {
       
   /* Do for each tuning selection */
   for (i=0; i<16; i++) {
+  
+    Serial.print("Trying ");
+    Serial.print(i);
     
     /* Set the tuning selection */
     as3935_set_tune_cap(i);
 
     /* Wait for it to setle */
     delay(10);
-    
+   
     /* Measure the number of interrupts in a set amount of time */
     noInterrupts();
     counter = 0;
@@ -256,6 +375,10 @@ INT8U calibrate(void) {
     noInterrupts();
     cnt = counter;
     interrupts();
+    
+    Serial.print(" cnt:");
+    Serial.print(cnt);
+    Serial.print(" ");
     
     /* Determine absolute error */
     if (cnt > TARGET) {
@@ -272,9 +395,9 @@ INT8U calibrate(void) {
 #endif
     
     /* Capture the smallest error */
-    if (err < bestCountError) {
+    if (err < bestTuneError) {
       bestTuneValue  = i;
-      bestCountError = err;
+      bestTuneError  = err;
     }
     
   } /* Do next tune selection */
@@ -285,9 +408,11 @@ INT8U calibrate(void) {
 #endif  
 
   /* Insure this error meets the 3.5% */
-  if (err < ERR_THRESHOLD) {
+  if (bestTuneError < ERR_THRESHOLD) {
+    Serial.println("Cal pass");
     retval = 1;
   } else {
+    Serial.println("Cal failed");
     retval = 0;
   }
 
@@ -299,6 +424,8 @@ INT8U calibrate(void) {
   
   /* Attach the normal ISR */
   attachInterrupt(0, normalIsr, RISING);
+  
+  digitalWrite(6, LOW);
 
   return retval;
         

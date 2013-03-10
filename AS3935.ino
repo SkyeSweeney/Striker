@@ -427,12 +427,26 @@ void as3935_display_trco_on_irq(INT8U on) {
  *
  *********************************************************************/
 void as3935_set_tune_cap(INT8U cap) {
-  REG_u reg8;
+  REG_u reg8, reg8a;
   INT8U err;
-
-  err = i2c_read(AS3935_ADDR, REG08, &reg8);
-  reg8.R8.TUN_CAP = cap;
-  err = i2c_write(AS3935_ADDR, REG08, reg8);
+  INT8U i;
+  
+  for (i=0; i<16; i++) {
+ 
+    err = i2c_read(AS3935_ADDR, REG08, &reg8);
+    Serial.print(" r-reg:");
+    Serial.print(reg8.data, HEX);
+    reg8.R8.TUN_CAP = cap;
+    //reg8.R8.DISP_TRCO = 0;
+    //reg8.R8.DISP_SRCO = 0;
+    //reg8.R8.DISP_LCO = 1;
+    Serial.print(" w-reg:");
+    Serial.print(reg8.data, HEX);
+    err = i2c_write(AS3935_ADDR, REG08, reg8);
+    err = i2c_read(AS3935_ADDR, REG08, &reg8a);
+    if (reg8.data == reg8a.data) break;
+    Serial.println("Try again");
+  }
 }
 
 

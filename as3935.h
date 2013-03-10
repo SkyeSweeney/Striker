@@ -106,6 +106,7 @@ typedef struct {
 } REG07_t;
 
 typedef struct {
+  // LSB
   INT8U TUN_CAP:4;
   INT8U reserved:1;
   INT8U DISP_TRCO:1;
