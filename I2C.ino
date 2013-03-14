@@ -43,17 +43,11 @@ INT8U i2c_read(INT8U add, RegisterID_e reg, REG_u *val) {
   /* Read the single byte from the specified word address */
   Wire.requestFrom((int)add, (int)1);
   
-  /* Wait till we get the needed byte */
-  for (i=0; i<100; i++) {
+  /* Make sure we got the byte we needed */
+  n = Wire.available();
     
-    /* Make sure we got the byte we needed */
-    n = Wire.available();
-    
-    if (n >= 1) break;
-  }
-  
   /* Check for the right number of bytes */
-  if (i == 100) {
+  if (n != 1) {
    
     retval = 5;
     

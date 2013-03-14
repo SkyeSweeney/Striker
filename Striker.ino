@@ -33,10 +33,10 @@
 volatile INT32U counter = 0; /* ISR counter */
 volatile INT8U  isrFlag = 0; /* Normal ISR flag */
 volatile INT8U  bitFlag = 0; /* BIT ISR flag */
-INT32U dotTime=0;
-INT32U calTime=0;
-INT32U bitTime=0;
-INT8U             hbCnt;
+INT32U   dotTime=0;
+INT32U   calTime=0;
+INT32U   bitTime=0;
+INT8U    hbCnt;
 
 
 /**********************************************************************
@@ -52,6 +52,9 @@ void setup(void) {
   /* Open I2C library */
   Wire.begin();
   
+  /* Drop the I2C bus speed to minimize bus errors */
+  TWBR = 140; 
+  
   pinMode(7, OUTPUT);
   pinMode(6, OUTPUT);
   
@@ -64,6 +67,7 @@ void setup(void) {
   /* Indicate we started */
   Serial.println("Striker starting");
 
+  
   /* Must read a register other than 0 at the start */
   /* This appears to be a limitation with the AS3935 */
   err = i2c_read(AS3935_ADDR, REG01, &reg);
@@ -72,7 +76,7 @@ void setup(void) {
   attachInterrupt(0, normalIsr, RISING);
   
   /* Set unit into operation mode */
-  as3935_set_powerdown(0);
+  //as3935_set_powerdown(0);
 
   now = millis();
   dotTime = now+1*SEC_TO_MS;   /* First heartbeat in one second */
@@ -94,7 +98,7 @@ void loop(void) {
   INT8U             bitResults;
   INT8U             calResult;
 
-  readTest();
+  //readTest();
   
   /* If the ISR flag has been set */
   if (isrFlag) {
@@ -109,7 +113,7 @@ void loop(void) {
     switch (reason) {
 
       case INT_NONE:
-        //Serial.println("None?");
+        Serial.println("None?");
         break;
 
       case INT_NOISY:
@@ -138,6 +142,7 @@ void loop(void) {
   /* Execute scheduled tasks */
   /***************************/
 
+#if 0
   /* Print a dot once a second for a heart beat */
   if (now > dotTime) {
 
@@ -150,6 +155,7 @@ void loop(void) {
     }
 
   }
+#endif  
 
   /* Perform calibration every 30 minutes */
   if (now > calTime) {
@@ -197,7 +203,7 @@ void normalIsr(void) {
    * We will also increment a counter here for when we perform auto cal.
    */
    
-   //isrFlag = 1;
+   isrFlag = 1;
 }
 
 /**********************************************************************
@@ -219,97 +225,6 @@ void bitIsr(void) {
 }
 
 
-/**********************************************************************
- *
- *********************************************************************/
-void readTest(void) {
-  INT8U e;
-  REG_u reg, reg8;
-  unsigned long i;
-
-  e = i2c_read(AS3935_ADDR, REG08, &reg8);
-  reg8.R8.DISP_LCO = 1;
-  reg8.R8.TUN_CAP  = 15;
-  e = i2c_write(AS3935_ADDR, REG08, reg8);
-  
-  delay(10);
-
-#if 1
-  for (i=0; i<100000; i++) {
-    
-    // Read a random register
-    //e = i2c_read(AS3935_ADDR, (RegisterID_e)(i%15), &reg);
-    
-    // Read R8 should be 0x8f
-    e = i2c_read(AS3935_ADDR, REG08, &reg8);
-    if ((reg8.data != 0x8f) || (e != 0)) {
-      PORTD = PORTD | 0x80;
-      //digitalWrite(7, HIGH);
-      Serial.print("Read failed: ");
-      Serial.print(reg8.data, HEX);
-      Serial.print(" err:");
-      Serial.print(e);
-      Serial.println("");
-      PORTD = PORTD & ~0x80;
-      //DigitalWrite(7, LOW);
-    } else {
-      PORTD = PORTD | 0x40;
-      PORTD = PORTD & ~0x40;
-    }
-    //Serial.println(e);
-    delay(1);
-  }
-  
-  Serial.println("Test done");
-  for(;;){delay(1);}
-
-#endif
-
-#if 1
-  for (i=0; i<10000 ; i++) {
-    
-    // Write register 8
-    e = i2c_write(AS3935_ADDR, REG08, reg8);
-    
-    // Read it back; Should be 0x8f
-    e = i2c_read(AS3935_ADDR, REG08, &reg8);
-    if (reg8.data != 0x8f) {
-      digitalWrite(7, HIGH);
-      Serial.println(reg8.data, HEX);
-      Serial.println("write/read failed");
-      for(;;){delay(1);}
-      break;
-    }
-    delay(1);
-  }
-#endif
-  
-#if 0
-  for (i=0; i<1000; i++) {
-    e = i2c_read(AS3935_ADDR, REG08, &reg8);
-    reg8.R8.TUN_CAP = i%16;
-    e = i2c_write(AS3935_ADDR, REG08, reg8);
-    e = i2c_read(AS3935_ADDR, REG08, &reg8);
-    if ((reg8.R8.DISP_LCO != 1) || (reg8.R8.TUN_CAP != i%16)) {
-      digitalWrite(7, HIGH);
-      Serial.println(reg8.data, HEX);
-      Serial.println("read/write failed");
-      for(;;){delay(1);}
-      break;
-    }
-    delay(1);
-  }
-#endif
-
-
-  Serial.println("Testing done");
-  
-  for (;;) {
-    delay(1);
-  }
-
- 
-}
 
 
 /**********************************************************************
@@ -471,3 +386,98 @@ INT8U bitTest(void) {
   return retval;
 
 }
+
+/**********************************************************************
+ *
+ *********************************************************************/
+void readTest(void) {
+  INT8U e;
+  REG_u reg, reg8;
+  unsigned long i;
+
+  e = i2c_read(AS3935_ADDR, REG08, &reg8);
+  reg8.R8.DISP_LCO = 1;
+  reg8.R8.TUN_CAP  = 15;
+  e = i2c_write(AS3935_ADDR, REG08, reg8);
+  
+  delay(10);
+  
+  Serial.println("Starting test 1");
+
+#if 1
+  for (i=0; i<10000; i++) {
+    
+    // Read a random register
+    //e = i2c_read(AS3935_ADDR, (RegisterID_e)(i%15), &reg);
+    
+    // Read R8 should be 0x8f
+    e = i2c_read(AS3935_ADDR, REG08, &reg8);
+    if ((reg8.data != 0x8f) || (e != 0)) {
+      PORTD = PORTD | 0x80;  // Pin 7 on
+      Serial.print("Read failed: ");
+      Serial.print(reg8.data, HEX);
+      Serial.print(" err:");
+      Serial.print(e);
+      Serial.println("");
+      PORTD = PORTD & ~0x80;  // Pin 7 off
+    } else {
+      PORTD = PORTD | 0x40;    // Pin 6 on
+      PORTD = PORTD & ~0x40;   // Pin 6 off
+    }
+    //Serial.println(e);
+    delay(1);
+  }
+  
+  Serial.println("Test 1 done");
+
+#endif
+
+#if 1
+  Serial.println("Starting test 2");
+
+
+  for (i=0; i<10000 ; i++) {
+    
+    // Write register 8
+    e = i2c_write(AS3935_ADDR, REG08, reg8);
+    
+    // Read it back; Should be 0x8f
+    e = i2c_read(AS3935_ADDR, REG08, &reg8);
+    if (reg8.data != 0x8f) {
+      digitalWrite(7, HIGH);
+      Serial.println(reg8.data, HEX);
+      Serial.println("write/read failed");
+      for(;;){delay(1);}
+      break;
+    }
+    delay(1);
+  }
+#endif
+  
+#if 0
+  for (i=0; i<1000; i++) {
+    e = i2c_read(AS3935_ADDR, REG08, &reg8);
+    reg8.R8.TUN_CAP = i%16;
+    e = i2c_write(AS3935_ADDR, REG08, reg8);
+    e = i2c_read(AS3935_ADDR, REG08, &reg8);
+    if ((reg8.R8.DISP_LCO != 1) || (reg8.R8.TUN_CAP != i%16)) {
+      digitalWrite(7, HIGH);
+      Serial.println(reg8.data, HEX);
+      Serial.println("read/write failed");
+      for(;;){delay(1);}
+      break;
+    }
+    delay(1);
+  }
+#endif
+
+
+  Serial.println("Testing done");
+  
+  for (;;) {
+    delay(1);
+  }
+
+ 
+}
+
