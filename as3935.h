@@ -128,32 +128,32 @@ typedef union {
   INT8U   data;
 } REG_u;
 
-INT8U               as3935_get_storm_distance(void);
-INT8U               as3935_get_powerdown(void);
-void                as3935_set_powerdown(INT8U pwr);
-void                as3935_set_afe(INT8U location);
-INT8U               as3935_get_afe(void);
-void                as3935_set_watchdog_threshold(INT8U threshold);
-INT8U               as3935_get_watchdog_threshold(void);
-void                as3935_set_noise_floor_level(INT8U nfl);
-INT8U               as3935_get_noise_floor_level(void);
-void                as3935_set_spike_rejection(INT8U srej);
-INT8U               as3935_get_spike_rejection(void);
-void                as3935_calibrate_rco(void);
-INT32U              as3935_get_energy_calc(void);
-InterruptReason_e   as3935_get_interrupt_reason(void);
-void                as3935_set_minimum_lightning(MinStrikes_e min);
-MinStrikes_e        as3935_get_minimum_lightning(void);
-void                as3935_clear_statistics(void);
-void                as3935_reset_registers(void);
-void                as3935_display_responance_freq_on_irq(INT8U on);
-void                as3935_display_trco_on_irq(INT8U on);
-void                as3935_display_srco_on_irq(INT8U on);
-void                as3935_set_tune_cap(INT8U cap);
-INT8U               as3935_get_tune_cap(void);
-void                as3935_set_freq_div_ratio(LCO_DIV_e div_ratio);
-void                as3935_calibrate(void);
-void                as3935_dump(INT8U n);
+INT8U               as3935_get_storm_distance(INT8U *val);
+INT8U               as3935_get_powerdown(INT8U *val);
+INT8U               as3935_set_powerdown(INT8U pwr);
+INT8U               as3935_set_afe(INT8U location);
+INT8U               as3935_get_afe(INT8U *val);
+INT8U               as3935_set_watchdog_threshold(INT8U threshold);
+INT8U               as3935_get_watchdog_threshold(INT8U *val);
+INT8U               as3935_set_noise_floor_level(INT8U nfl);
+INT8U               as3935_get_noise_floor_level(INT8U *val);
+INT8U               as3935_set_spike_rejection(INT8U srej);
+INT8U               as3935_get_spike_rejection(INT8U *val);
+INT8U               as3935_calibrate_rco(void);
+INT8U               as3935_get_energy_calc(INT32U *val);
+INT8U               as3935_get_interrupt_reason(InterruptReason_e *val);
+INT8U               as3935_set_minimum_lightning(MinStrikes_e min);
+INT8U               as3935_get_minimum_lightning(MinStrikes_e *val);
+INT8U               as3935_clear_statistics(void);
+INT8U               as3935_reset_registers(void);
+INT8U               as3935_display_responance_freq_on_irq(INT8U on);
+INT8U               as3935_display_trco_on_irq(INT8U on);
+INT8U               as3935_display_srco_on_irq(INT8U on);
+INT8U               as3935_set_tune_cap(INT8U cap);
+INT8U               as3935_get_tune_cap(INT8U *val);
+INT8U               as3935_set_freq_div_ratio(LCO_DIV_e div_ratio);
+INT8U               as3935_calibrate(void);
+INT8U               as3935_dump(INT8U n);
 
 
 #endif

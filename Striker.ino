@@ -18,6 +18,7 @@
 #include "I2C.h"
 
 #define DEBUG
+//#define DOT
 
 #define SEC_TO_MS  (1000L)
 #define MIN_TO_MS  (1000L*60L)
@@ -48,12 +49,13 @@ void setup(void) {
   REG_u  reg;
   INT8U  err;
   INT32U now;
+  INT8U thres;
   
   /* Open I2C library */
   Wire.begin();
   
   /* Drop the I2C bus speed to minimize bus errors */
-  TWBR = 140; 
+  //TWBR = 140; 
   
   pinMode(7, OUTPUT);
   pinMode(6, OUTPUT);
@@ -66,11 +68,10 @@ void setup(void) {
 
   /* Indicate we started */
   Serial.println("Striker starting");
-
-  
+ 
   /* Must read a register other than 0 at the start */
   /* This appears to be a limitation with the AS3935 */
-  err = i2c_read(AS3935_ADDR, REG01, &reg);
+  as3935_err(as3935_get_watchdog_threshold(&thres), "get thres");
   
   /* Attach the ISR */
   attachInterrupt(0, normalIsr, RISING);
@@ -95,18 +96,32 @@ void setup(void) {
 void loop(void) {
   InterruptReason_e reason;
   INT32U            now;
+  INT32U            power;
   INT8U             bitResults;
   INT8U             calResult;
-
-  //readTest();
+  INT8U             err;
+  INT8U             dist;
+  INT8U             val;
+  char              c;
   
+  
+  if (Serial.available() > 0) {
+    c = Serial.read();
+    if (c == 'x') {
+      as3935_err(as3935_dump(10), "x");
+    } else if (c == 'p') {
+      as3935_err(as3935_get_powerdown(&val), "p");
+    }
+
+  }
+
   /* If the ISR flag has been set */
   if (isrFlag) {
     
     isrFlag = 0;
-    
-    delay(ISR_DELAY); // Delay claimed by datasheet
-    reason = as3935_get_interrupt_reason();
+
+    /* Get the reason for the interrupt */    
+    as3935_err(as3935_get_interrupt_reason(&reason), "get_isr");
     
     Serial.print("ISR: ");
     
@@ -126,6 +141,15 @@ void loop(void) {
 
       case INT_STRIKE:
         Serial.println("Strike");
+        as3935_err(as3935_get_energy_calc(&power), "get-power");
+        as3935_err(as3935_get_storm_distance(&dist), "get-dist");
+        Serial.print("Pwr: ");
+        Serial.print(power);
+        Serial.print(" Dist: ");
+        Serial.print(dist);
+        Serial.println("");
+
+
         break;
 
       default:
@@ -142,7 +166,7 @@ void loop(void) {
   /* Execute scheduled tasks */
   /***************************/
 
-#if 0
+#ifdef DOT
   /* Print a dot once a second for a heart beat */
   if (now > dotTime) {
 
@@ -161,13 +185,14 @@ void loop(void) {
   if (now > calTime) {
 
     calTime = now + 30*MIN_TO_MS;
-    Serial.println("Calibration starting");
     calResult = calibrate();
 
     /* Process calibration results */
     if (calResult != 1) {
       Serial.println("Calibration failed");
     }
+    
+    as3935_err(as3935_dump(10),"dump");
 
   }
 
@@ -236,24 +261,22 @@ INT8U calibrate(void) {
   INT8U   bestTuneValue = 0;
   INT8U   bestDivider   = 0;
   INT8U   i;
-  INT32U  bestTuneError = 100000;
-  INT32U  err;
+  INT32U  bestTuneDiff = 100000;
+  INT32U  diff;
+  INT8U   err;
   INT16U  target;
   INT32U  cnt;
   INT8U   retval;
   
-  digitalWrite(6, HIGH);
-  
+
   /* Attach the calibration ISR */
-  Serial.println("Install ISR");
   attachInterrupt(0, calIsr, RISING);
   
   /* Set the LCO output divider to 16 */
-  as3935_set_freq_div_ratio(LCO_DIV_16);
+  as3935_err(as3935_set_freq_div_ratio(LCO_DIV_16), "LCO/16");
  
   /* Put the LCO onto the interrupt pin */
-  Serial.println("Put LCO on ISR pin");
-  as3935_display_responance_freq_on_irq(1);
+  as3935_err(as3935_display_responance_freq_on_irq(1), "LCO-isr");
     
 
   /********************************************************************
@@ -270,11 +293,8 @@ INT8U calibrate(void) {
   /* Do for each tuning selection */
   for (i=0; i<16; i++) {
   
-    Serial.print("Trying ");
-    Serial.print(i);
-    
     /* Set the tuning selection */
-    as3935_set_tune_cap(i);
+    as3935_err(as3935_set_tune_cap(i), "set cap");
 
     /* Wait for it to setle */
     delay(10);
@@ -291,28 +311,24 @@ INT8U calibrate(void) {
     cnt = counter;
     interrupts();
     
-    Serial.print(" cnt:");
-    Serial.print(cnt);
-    Serial.print(" ");
-    
     /* Determine absolute error */
     if (cnt > TARGET) {
-      err = cnt - TARGET;
+      diff = cnt - TARGET;
     } else {
-      err = TARGET - cnt;
+      diff = TARGET - cnt;
     }
 
 #ifdef DEBUG
     Serial.print("Tune: ");
     Serial.print(i);
     Serial.print(" = ");
-    Serial.println(err);
+    Serial.println(diff);
 #endif
     
     /* Capture the smallest error */
-    if (err < bestTuneError) {
+    if (diff < bestTuneDiff) {
       bestTuneValue  = i;
-      bestTuneError  = err;
+      bestTuneDiff  = diff;
     }
     
   } /* Do next tune selection */
@@ -323,25 +339,21 @@ INT8U calibrate(void) {
 #endif  
 
   /* Insure this error meets the 3.5% */
-  if (bestTuneError < ERR_THRESHOLD) {
-    Serial.println("Cal pass");
+  if (bestTuneDiff < ERR_THRESHOLD) {
     retval = 1;
   } else {
-    Serial.println("Cal failed");
     retval = 0;
   }
 
   /* Now set the tune value of the best match */
-  as3935_set_tune_cap(bestTuneValue);
+  as3935_err(as3935_set_tune_cap(bestTuneValue), "set best cap");
 
   /* Restore interrupt pin to normal operation */
-  as3935_display_responance_freq_on_irq(0);
+  as3935_err(as3935_display_responance_freq_on_irq(0), "LCO-off");
   
   /* Attach the normal ISR */
   attachInterrupt(0, normalIsr, RISING);
   
-  digitalWrite(6, LOW);
-
   return retval;
         
 } /* end calibrate */
@@ -353,8 +365,9 @@ INT8U calibrate(void) {
  *
  *********************************************************************/
 INT8U bitTest(void) {
-  INT8U retval;
+  INT8U             retval;
   InterruptReason_e reason;
+  INT8U             err;
 
   /* Attach the BIT isr */
   attachInterrupt(0, bitIsr, RISING);
@@ -371,7 +384,7 @@ INT8U bitTest(void) {
   if (bitFlag) {
 
     /* Read the ISR to clear the interrupt */
-    reason = as3935_get_interrupt_reason();
+    as3935_err(as3935_get_interrupt_reason(&reason), "get isr");
 
     retval = 1;
 
@@ -387,6 +400,7 @@ INT8U bitTest(void) {
 
 }
 
+#if 0
 /**********************************************************************
  *
  *********************************************************************/
@@ -480,4 +494,4 @@ void readTest(void) {
 
  
 }
-
+#endif

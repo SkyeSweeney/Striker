@@ -17,23 +17,42 @@
 #include "as3935.h"
 #include "I2C.h"
 
+
+/**********************************************************************
+ *
+ * Standard error handling
+ *
+ *********************************************************************/
+void as3935_err(INT8U err, char *str) {
+  if (err != 0) {
+    Serial.print("as3935 error: ");
+    Serial.print(err);
+    Serial.print(" at: ");
+    Serial.println(str);
+  }
+}
+
+
 /**********************************************************************
  *
  * Dump the first n registers
  *
  *********************************************************************/
-void as3935_dump(INT8U n) {
+INT8U as3935_dump(INT8U n) {
   INT8U  i;
   REG_u  reg;
   INT8U  err;
   
-  for (i=0; i<n; i++) {
+  for (i=1; i<n; i++) {
     err = i2c_read(AS3935_ADDR, (RegisterID_e)i, &reg);
+    if (err != 0) break;
     Serial.print("Reg ");
     Serial.print(i);
     Serial.print(" = ");
     Serial.println(reg.data, HEX);
   }
+  
+  return(err);
    
 } /* end as3935_dump */
 
@@ -43,13 +62,16 @@ void as3935_dump(INT8U n) {
  * Set the powerdown flag
  *
  *********************************************************************/
-void as3935_set_powerdown(INT8U pwr) {
+INT8U as3935_set_powerdown(INT8U pwr) {
   REG_u reg0;
   INT8U err;
   
   err = i2c_read(AS3935_ADDR, REG00, &reg0);
-  reg0.R0.PWD = pwr;
-  err = i2c_write(AS3935_ADDR, REG00, reg0);
+  if (err == 0) {
+    reg0.R0.PWD = pwr;
+    err = i2c_write(AS3935_ADDR, REG00, reg0);
+  }
+  return(err);
 }
 
 
@@ -58,12 +80,17 @@ void as3935_set_powerdown(INT8U pwr) {
  * Get the powerdown status
  *
  *********************************************************************/
-INT8U as3935_get_powerdown(void) {
+INT8U as3935_get_powerdown(INT8U *val) {
   REG_u reg0;
   INT8U err;
   
   err = i2c_read(AS3935_ADDR, REG00, &reg0);
-  return reg0.R0.PWD;
+  if (err == 0) {
+    *val = reg0.R0.PWD;
+  } else {
+    *val = 0;
+  }
+  return(err);
 }
   
 
@@ -72,13 +99,16 @@ INT8U as3935_get_powerdown(void) {
  * Set the gain
  *
  *********************************************************************/
-void as3935_set_afe(INT8U gain) {
+INT8U as3935_set_afe(INT8U gain) {
   REG_u reg0;
   INT8U err;
   
   err = i2c_read(AS3935_ADDR, REG00, &reg0);
-  reg0.R0.AFE_GB = gain;
-  err = i2c_write(AS3935_ADDR, REG00, reg0);
+  if (err == 0) {
+    reg0.R0.AFE_GB = gain;
+    err = i2c_write(AS3935_ADDR, REG00, reg0);
+  }
+  return(err);
 }
 
 
@@ -87,13 +117,17 @@ void as3935_set_afe(INT8U gain) {
  * Return the current gain
  *
  *********************************************************************/
-INT8U as3935_get_afe(void) {
+INT8U as3935_get_afe(INT8U *val) {
   REG_u reg0;
   INT8U err;
 
   err = i2c_read(AS3935_ADDR, REG00, &reg0);
-
-  return reg0.R0.AFE_GB;
+  if (err == 0) {
+    *val = reg0.R0.AFE_GB;
+  } else {
+    *val = 0;
+  }
+  return(err);
 }
 
 
@@ -102,13 +136,16 @@ INT8U as3935_get_afe(void) {
  * Set watchdog threshold
  *
  *********************************************************************/
-void as3935_set_watchdog_threshold(INT8U threshold) {
+INT8U as3935_set_watchdog_threshold(INT8U threshold) {
   REG_u reg1;
   INT8U err;
   
   err = i2c_read(AS3935_ADDR, REG01, &reg1);
-  reg1.R1.WDTH = threshold;
-  err = i2c_write(AS3935_ADDR, REG01, reg1);
+  if (err == 0) {
+    reg1.R1.WDTH = threshold;
+    err = i2c_write(AS3935_ADDR, REG01, reg1);
+  }
+  return(err);
 }
 
 
@@ -117,13 +154,17 @@ void as3935_set_watchdog_threshold(INT8U threshold) {
  * Get the watchdog threshold
  *
  *********************************************************************/
-INT8U as3935_get_watchdog_threshold(void) {
+INT8U as3935_get_watchdog_threshold(INT8U *val) {
   REG_u reg1;
   INT8U err;
 
   err = i2c_read(AS3935_ADDR, REG01, &reg1);
-
-  return reg1.R1.WDTH;
+  if (err == 0) {
+    *val = reg1.R1.WDTH;
+  } else {
+    *val = 0;
+  }
+  return(err);
 }
   
 
@@ -133,13 +174,16 @@ INT8U as3935_get_watchdog_threshold(void) {
  * Set the noise floor level
  *
  *********************************************************************/
-void as3935_set_noise_floor_level(INT8U nfl) {
+INT8U as3935_set_noise_floor_level(INT8U nfl) {
   REG_u reg1;
   INT8U err;
   
   err = i2c_read(AS3935_ADDR, REG01, &reg1);
-  reg1.R1.NF_LEV = nfl;
-  err = i2c_write(AS3935_ADDR, REG01, reg1);
+  if (err == 0) {
+    reg1.R1.NF_LEV = nfl;
+    err = i2c_write(AS3935_ADDR, REG01, reg1);
+  }
+  return(err);
 }
 
 
@@ -148,13 +192,17 @@ void as3935_set_noise_floor_level(INT8U nfl) {
  * Get the noise floor level
  *
  *********************************************************************/
-INT8U as3935_get_noise_floor_level(void) {
+INT8U as3935_get_noise_floor_level(INT8U *val) {
   REG_u reg1;
   INT8U err;
 
   err = i2c_read(AS3935_ADDR, REG01, &reg1);
-
-  return reg1.R1.NF_LEV;
+  if (err == 0) {
+    *val = reg1.R1.NF_LEV;
+  } else {
+    *val = 0;
+  }
+  return(err);
 }
 
 
@@ -163,13 +211,16 @@ INT8U as3935_get_noise_floor_level(void) {
  * Set the minimum number of strikes
  *
  *********************************************************************/
-void as3935_set_spike_rejection(INT8U srej) {
+INT8U as3935_set_spike_rejection(INT8U srej) {
   REG_u reg2;
   INT8U err;
 
   err = i2c_read(AS3935_ADDR, REG02, &reg2);
-  reg2.R2.SREJ = srej;
-  err = i2c_write(AS3935_ADDR, REG02, reg2);
+  if (err == 0) {
+    reg2.R2.SREJ = srej;
+    err = i2c_write(AS3935_ADDR, REG02, reg2);
+  } 
+  return(err);
   
 }
 
@@ -179,13 +230,17 @@ void as3935_set_spike_rejection(INT8U srej) {
  * Get the minimum number of strikes
  *
  *********************************************************************/
-INT8U as3935_get_spike_rejection(void) {
+INT8U as3935_get_spike_rejection(INT8U *val) {
   REG_u reg2;
   INT8U err;
 
   err = i2c_read(AS3935_ADDR, REG02, &reg2);
-
-  return reg2.R2.SREJ;
+  if (err == 0) {
+    *val = reg2.R2.SREJ;
+  } else {
+    *val = 0;
+  }
+  return(err);
 }  
 
 
@@ -194,7 +249,7 @@ INT8U as3935_get_spike_rejection(void) {
  * Calibrate the RCO
  *
  *********************************************************************/
-void as3935_calibrate_rco(void) {
+INT8U as3935_calibrate_rco(void) {
   REG_u  reg8;
   INT8U  err;
   INT8U  v = 0x61;
@@ -202,21 +257,29 @@ void as3935_calibrate_rco(void) {
   
   // Send Direct command CALIB_RCO
   err = i2c_write(AS3935_ADDR, REG_CAL_RCO, *((REG_u*)&v));
-
-  // Wait for it to stabilize
-  delay(10);
-
-  // Set the display TRCO bit
-  err = i2c_read(AS3935_ADDR, REG08, &reg8);
-  reg8.R8.DISP_TRCO = 1;
-  err = i2c_write(AS3935_ADDR, REG08, reg8);
   
-  // Wait 
-  delay(10);
+  if (err == 0) {
+
+    // Wait for it to stabilize
+    delay(10);
   
-  // Clear the display TRCO bit
-  reg8.R8.DISP_TRCO = 0;
-  err = i2c_write(AS3935_ADDR, REG08, reg8);
+    // Set the display TRCO bit
+    err = i2c_read(AS3935_ADDR, REG08, &reg8);
+    if (err == 0) {
+      reg8.R8.DISP_TRCO = 1;
+      err = i2c_write(AS3935_ADDR, REG08, reg8);
+      if (err == 0) {
+        
+        // Wait 
+        delay(10);
+        
+        // Clear the display TRCO bit
+        reg8.R8.DISP_TRCO = 0;
+        err = i2c_write(AS3935_ADDR, REG08, reg8);
+      }
+    }
+  }
+  return (err);
   
 }  
 
@@ -226,27 +289,35 @@ void as3935_calibrate_rco(void) {
  * Get energy value from last strike
  *
  *********************************************************************/
-INT32U as3935_get_energy_calc(void) {
+INT8U as3935_get_energy_calc(INT32U *val) {
   Energy_u e;
   REG_u    reg, reg6;
   INT8U    err;
 
+  *val = 0;
   e.bits8[0] = 0;
   
   //  REG0x06[4:0] S_LIG_MM
   err = i2c_read(AS3935_ADDR, REG06, &reg6);
-  e.bits8[1] = reg6.R6.S_LIG_MM;
-  
-  //   REG0x05[7:0] S_LIG_M
-  err = i2c_read(AS3935_ADDR, REG05, &reg);
-  e.bits8[2] = reg.data;
-  
-  //  REG0x04[7:0]  S_LIG_L
-  err = i2c_read(AS3935_ADDR, REG04, &reg);
-  e.bits8[3] = reg.data;
-  
-  return e.val;
-  
+  if (err == 0) {
+    
+    e.bits8[1] = reg6.R6.S_LIG_MM;
+    
+    //   REG0x05[7:0] S_LIG_M
+    err = i2c_read(AS3935_ADDR, REG05, &reg);
+    if (err == 0) {
+      e.bits8[2] = reg.data;
+      
+      //  REG0x04[7:0]  S_LIG_L
+      err = i2c_read(AS3935_ADDR, REG04, &reg);
+      if (err == 0) {
+        e.bits8[3] = reg.data;
+      
+        *val = e.val;
+      }
+    }
+  }
+  return(err);
 }
 
 
@@ -255,13 +326,17 @@ INT32U as3935_get_energy_calc(void) {
  * Get storm distance
  *
  *********************************************************************/
-INT8U as3935_get_storm_distance(void) {
+INT8U as3935_get_storm_distance(INT8U *val) {
   REG_u reg7;
   INT8U err;
+ 
+  *val = 0;
 
   err = i2c_read(AS3935_ADDR, REG07, &reg7);
-
-  return reg7.R7.DISTANCE;
+  if (err == 0) {
+    *val = reg7.R7.DISTANCE;
+  }
+  return(err);
 }
 
 
@@ -270,16 +345,20 @@ INT8U as3935_get_storm_distance(void) {
  * Get reason for interrupt
  *
  *********************************************************************/
-InterruptReason_e as3935_get_interrupt_reason(void) {
+INT8U as3935_get_interrupt_reason(InterruptReason_e *val) {
   REG_u reg3;
   INT8U err;
+  
+  *val = INT_NONE;
 
-  // Datasheet indicates that the INT field only updates after 2ms!!!
-  // What a piece of crap.
+  /* Datasheet indicates that the INT field only updates after 2ms!!!
+   * What a piece of crap. */
   delay(2); 
   err = i2c_read(AS3935_ADDR, REG03, &reg3);
-
-  return((InterruptReason_e)reg3.R3.INT);
+  if (err == 0) {
+    *val = (InterruptReason_e)reg3.R3.INT;
+  }
+  return(err);
 }  
 
 
@@ -288,13 +367,16 @@ InterruptReason_e as3935_get_interrupt_reason(void) {
  * Set the minimum number of strikes needed
  *
  *********************************************************************/
-void as3935_set_minimum_lightning(MinStrikes_e min) {
+INT8U as3935_set_minimum_lightning(MinStrikes_e min) {
   REG_u reg2;
   INT8U err;
 
   err = i2c_read(AS3935_ADDR, REG02, &reg2);
-  reg2.R2.MIN_NUM_LIGHT = min;
-  err = i2c_write(AS3935_ADDR, REG02, reg2);
+  if (err == 0) {
+    reg2.R2.MIN_NUM_LIGHT = min;
+    err = i2c_write(AS3935_ADDR, REG02, reg2);
+  }
+  return(err);
 }
 
 
@@ -303,13 +385,17 @@ void as3935_set_minimum_lightning(MinStrikes_e min) {
  * Get the minimum number of strikes
  *
  *********************************************************************/
-MinStrikes_e as3935_get_minimum_lightning(void) {
+INT8U as3935_get_minimum_lightning(MinStrikes_e *val) {
   REG_u reg2;
   INT8U err;
   
   err = i2c_read(AS3935_ADDR, REG02, &reg2);
-
-  return (MinStrikes_e)reg2.R2.MIN_NUM_LIGHT;
+  if (err == 0) {
+    *val = (MinStrikes_e)reg2.R2.MIN_NUM_LIGHT;
+  } else {
+    *val = MIN_1;
+  }
+  return(err);
 }
 
 
@@ -318,17 +404,24 @@ MinStrikes_e as3935_get_minimum_lightning(void) {
  * Clear statistics
  *
  *********************************************************************/
-void as3936_clear_statistics(void) {
+INT8U as3936_clear_statistics(void) {
   REG_u reg2;
   INT8U err;
 
   err = i2c_read(AS3935_ADDR, REG02, &reg2);
-  reg2.R2.CL_STAT = 1;
-  err = i2c_write(AS3935_ADDR, REG02, reg2);
-  reg2.R2.CL_STAT = 0;
-  err = i2c_write(AS3935_ADDR, REG02, reg2);
-  reg2.R2.CL_STAT = 1;
-  err = i2c_write(AS3935_ADDR, REG02, reg2);
+  if (err == 0) {
+    reg2.R2.CL_STAT = 1;
+    err = i2c_write(AS3935_ADDR, REG02, reg2);
+    if (err == 0) {
+      reg2.R2.CL_STAT = 0;
+      err = i2c_write(AS3935_ADDR, REG02, reg2);
+      if (err == 0) {
+        reg2.R2.CL_STAT = 1;
+        err = i2c_write(AS3935_ADDR, REG02, reg2);
+      }
+    }
+  }
+  return(err);
 }
 
 
@@ -337,13 +430,16 @@ void as3936_clear_statistics(void) {
  * Set the LCO divider
  *
  *********************************************************************/
-void as3935_set_freq_div_ratio(LCO_DIV_e div_ratio) {
+INT8U as3935_set_freq_div_ratio(LCO_DIV_e div_ratio) {
   REG_u reg3;
   INT8U err;
 
   err = i2c_read(AS3935_ADDR, REG03, &reg3);
-  reg3.R3.LCO_FDIV = div_ratio;
-  err = i2c_write(AS3935_ADDR, REG03, reg3);
+  if (err == 0) {
+    reg3.R3.LCO_FDIV = div_ratio;
+    err = i2c_write(AS3935_ADDR, REG03, reg3);
+  }
+  return(err);
 }
   
 
@@ -352,13 +448,16 @@ void as3935_set_freq_div_ratio(LCO_DIV_e div_ratio) {
  * Set the Mask Disruptor flag
  *
  *********************************************************************/
-void as3935_set_mask_disturber(INT8U mask) {
+INT8U as3935_set_mask_disturber(INT8U mask) {
   REG_u reg3;
   INT8U err;
 
   err = i2c_read(AS3935_ADDR, REG03, &reg3);
-  reg3.R3.MASK_DIST = mask;
-  err = i2c_write(AS3935_ADDR, REG03, reg3);
+  if (err == 0) {
+    reg3.R3.MASK_DIST = mask;
+    err = i2c_write(AS3935_ADDR, REG03, reg3);
+  }
+  return(err);
 }
     
 
@@ -367,12 +466,13 @@ void as3935_set_mask_disturber(INT8U mask) {
  * Reset chip back to normal
  *
  *********************************************************************/
-void as3935_reset_registers(void) {
+INT8U as3935_reset_registers(void) {
   REG_u val;
   INT8U err;
   
   val.data = MAGIC_VALUE;
   err = i2c_write(AS3935_ADDR, REG_RESET, val);
+  return(err);
 }
 
 
@@ -381,13 +481,16 @@ void as3935_reset_registers(void) {
  * Display LCO freq on irq pin
  *
  *********************************************************************/
-void as3935_display_responance_freq_on_irq(INT8U on) {
+INT8U as3935_display_responance_freq_on_irq(INT8U on) {
   REG_u reg8;
   INT8U err;
 
   err = i2c_read(AS3935_ADDR, REG08, &reg8);
-  reg8.R8.DISP_LCO = on;
-  err = i2c_write(AS3935_ADDR, REG08, reg8);
+  if (err == 0) {
+    reg8.R8.DISP_LCO = on;
+    err = i2c_write(AS3935_ADDR, REG08, reg8);
+  } 
+  return(err);
 }    
 
  
@@ -396,13 +499,16 @@ void as3935_display_responance_freq_on_irq(INT8U on) {
  * Display SRCO freq on irq pin
  *
  *********************************************************************/
-void as3935_display_srco_on_irq(INT8U on) {
+INT8U as3935_display_srco_on_irq(INT8U on) {
   REG_u reg8;
   INT8U err;
 
   err = i2c_read(AS3935_ADDR, REG08, &reg8);
-  reg8.R8.DISP_SRCO = on;
-  err = i2c_write(AS3935_ADDR, REG08, reg8);
+  if (err == 0) {
+    reg8.R8.DISP_SRCO = on;
+    err = i2c_write(AS3935_ADDR, REG08, reg8);
+  }
+  return(err);
 }    
 
 
@@ -411,13 +517,16 @@ void as3935_display_srco_on_irq(INT8U on) {
  * Display TRCO freq on irq pin
  *
  *********************************************************************/
-void as3935_display_trco_on_irq(INT8U on) {
+INT8U as3935_display_trco_on_irq(INT8U on) {
   REG_u reg8;
   INT8U err;
 
   err = i2c_read(AS3935_ADDR, REG08, &reg8);
-  reg8.R8.DISP_TRCO = on;
-  err = i2c_write(AS3935_ADDR, REG08, reg8);
+  if (err == 0) {
+    reg8.R8.DISP_TRCO = on;
+    err = i2c_write(AS3935_ADDR, REG08, reg8);
+  }
+  return(err);
 }    
 
   
@@ -426,27 +535,17 @@ void as3935_display_trco_on_irq(INT8U on) {
  * Set the tune capacitor
  *
  *********************************************************************/
-void as3935_set_tune_cap(INT8U cap) {
+INT8U as3935_set_tune_cap(INT8U cap) {
   REG_u reg8, reg8a;
   INT8U err;
   INT8U i;
-  
-  for (i=0; i<16; i++) {
- 
-    err = i2c_read(AS3935_ADDR, REG08, &reg8);
-    Serial.print(" r-reg:");
-    Serial.print(reg8.data, HEX);
+
+  err = i2c_read(AS3935_ADDR, REG08, &reg8);
+  if (err == 0) {
     reg8.R8.TUN_CAP = cap;
-    //reg8.R8.DISP_TRCO = 0;
-    //reg8.R8.DISP_SRCO = 0;
-    //reg8.R8.DISP_LCO = 1;
-    Serial.print(" w-reg:");
-    Serial.print(reg8.data, HEX);
     err = i2c_write(AS3935_ADDR, REG08, reg8);
-    err = i2c_read(AS3935_ADDR, REG08, &reg8a);
-    if (reg8.data == reg8a.data) break;
-    Serial.println("Try again");
   }
+  return(err);
 }
 
 
@@ -455,12 +554,16 @@ void as3935_set_tune_cap(INT8U cap) {
  * Get the tune cap value
  *
  *********************************************************************/
-INT8U as3935_get_tune_cap(void) {
+INT8U as3935_get_tune_cap(INT8U *val) {
   REG_u reg8;
   INT8U err;
 
   err = i2c_read(AS3935_ADDR, REG08, &reg8);
-
-  return reg8.R8.TUN_CAP;
+  if (err == 0) {
+    *val = reg8.R8.TUN_CAP;
+  } else {
+    *val = 0;
+  }
+  return(err);
 }
 

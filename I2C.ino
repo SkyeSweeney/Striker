@@ -37,28 +37,29 @@ INT8U i2c_read(INT8U add, RegisterID_e reg, REG_u *val) {
   /* Write word address to read */
   Wire.beginTransmission(add);
   Wire.write((INT8U)reg);
-  err = Wire.endTransmission(false);
-  if (err != 0) return(err);
+  retval = Wire.endTransmission(false);
   
-  /* Read the single byte from the specified word address */
-  Wire.requestFrom((int)add, (int)1);
+  if (retval == 0) {
   
-  /* Make sure we got the byte we needed */
-  n = Wire.available();
+    /* Read the single byte from the specified word address */
+    Wire.requestFrom((int)add, (int)1);
     
-  /* Check for the right number of bytes */
-  if (n != 1) {
-   
-    retval = 5;
+    /* Make sure we got the byte we needed */
+    n = Wire.available();
+      
+    /* Check for the right number of bytes */
+    if (n != 1) {
+     
+      retval = 5;
+      Serial.print("n=");
+      Serial.println(n);
+      
+    } else {
     
-  } else {
-  
-    /* Get the byte */
-    val->data = Wire.read();
-  }
-  
-  if (retval != 0) {
-    Serial.println("Read error");
+      /* Get the byte */
+      val->data = Wire.read();
+    }
+    
   }
   
   return(retval);
@@ -83,10 +84,6 @@ INT8U i2c_write(INT8U add, RegisterID_e reg, REG_u val) {
   Wire.write(val.data);
   retval = Wire.endTransmission();
   
-  if (retval != 0) {
-    Serial.println("Write error");
-  }
-
   return(retval);
 
 }
