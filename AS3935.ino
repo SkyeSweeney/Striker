@@ -45,7 +45,10 @@ INT8U as3935_dump(INT8U n) {
   
   for (i=1; i<n; i++) {
     err = i2c_read(AS3935_ADDR, (RegisterID_e)i, &reg);
-    if (err != 0) break;
+    if (err != 0) {
+      Serial.println("Failed");
+      break;
+    }
     Serial.print("Reg ");
     Serial.print(i);
     Serial.print(" = ");

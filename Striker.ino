@@ -103,14 +103,19 @@ void loop(void) {
   INT8U             dist;
   INT8U             val;
   char              c;
+  REG_u             reg;
   
   
   if (Serial.available() > 0) {
     c = Serial.read();
-    if (c == 'x') {
-      as3935_err(as3935_dump(10), "x");
-    } else if (c == 'p') {
-      as3935_err(as3935_get_powerdown(&val), "p");
+    if (c == 'd') {
+      as3935_err(as3935_dump(10), "d");
+    } else if (c == '0') {
+      as3935_err(i2c_read(AS3935_ADDR, REG00, &reg), "0");
+    } else if (c == '1') {
+      as3935_err(i2c_read(AS3935_ADDR, REG01, &reg), "1");
+    } else if (c == '2') {
+      as3935_err(i2c_read(AS3935_ADDR, REG02, &reg), "2");
     }
 
   }
