@@ -10,6 +10,64 @@
 
 
 
+#if 1
+
+/**********************************************************************
+ *
+ * I2C read routine
+ * Read a value from the specified register at the specified address
+ * @param add The 7 bit address of the desired chip
+ * @param reg The register number to read from
+ * @param val Pointer to the storage for the read value
+ * @return A coded error number
+ * 0 - OK
+ * 1 - Too long
+ * 2 - NACK on address
+ * 3 - NACK on data
+ * 4 - Unknown error
+ * 5 - Invalid number of bytes 
+ *
+ *********************************************************************/
+INT8U i2c_read(INT8U add, RegisterID_e reg, REG_u *val) {
+  INT8U  retval = 0;
+
+  /* Set a default return value */
+  val->data = 0x00;
+  
+  si2c.start( add | I2C_WRITE);
+  si2c.write(reg);
+  si2c.restart(add | I2C_READ);
+  val->data = si2c.read(1);  /* Read just one byte */
+  si2c.stop();
+    
+  return(retval);
+  
+}
+
+/**********************************************************************
+ *
+ * I2C write routine
+ * Write a value to the specified register at the specified address
+ * @param add The 7 bit address of the desired chip
+ * @param reg The register number to write to
+ * @param val The value to put into the register
+ * @return A coded error number
+ *
+ *********************************************************************/
+INT8U i2c_write(INT8U add, RegisterID_e reg, REG_u val) {
+  INT8U retval = 0;
+
+  si2c.start( add | I2C_WRITE);
+  si2c.write(reg);
+  si2c.write(val.data);
+  si2c.stop();
+  
+  return(retval);
+
+}
+
+#else
+
 
 /**********************************************************************
  *
@@ -89,4 +147,4 @@ INT8U i2c_write(INT8U add, RegisterID_e reg, REG_u val) {
   return(retval);
 
 }
-
+#endif

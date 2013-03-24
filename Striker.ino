@@ -53,8 +53,6 @@
 #include "I2cMaster.h"
 
 
-#define DEBUG
-
 /* Helpful conversions */
 #define SEC_TO_MS  (1000L)
 #define MIN_TO_MS  (1000L*60L)
@@ -63,8 +61,6 @@
 /* Pins used for I2C */
 #define SDA_PIN A4
 #define SCL_PIN A5
-//#define SDA_PIN 7
-//#define SCL_PIN 6
 
 /* Pin used for strike generator */
 #define STRIKE_PIN 4
@@ -82,6 +78,7 @@ volatile INT8U  isrFlag   = 0; /* Normal ISR flag */
 volatile INT32U bitCnt    = 0; /* BIT ISR counter */
          INT32U calTime   = 0; /* Time to do the next calibration */
          INT32U bitTime   = 0; /* Time to do the next BIT */
+         
 SoftI2cMaster si2c(SDA_PIN, SCL_PIN);  /* Bit-Bang I2C */
 
 /**********************************************************************
@@ -102,31 +99,12 @@ void setup(void) {
   /* Indicate we started */
   Serial.println("Striker starting");
   
-  /* In order to overcome a bug in the AS3935, one must read
-   * register 0 the first time using a bit-bang approach so
-   * that you can ignore the incorrect NAK the chip generates.
-   * After that, we can switch to the Wire library 
-   */
-  delay(250) ;
-  si2c.start( AS3935_ADDR| I2C_WRITE);
-  si2c.write(0);
-  si2c.restart(AS3935_ADDR| I2C_READ);
-  val = si2c.read(1);  /* Read just one byte */
-  si2c.stop();
-  Serial.println(val, HEX);
-
-  si2c.start( AS3935_ADDR| I2C_WRITE);
-  si2c.write(1);
-  si2c.restart(AS3935_ADDR| I2C_READ);
-  val = si2c.read(1);  /* Read just one byte */
-  si2c.stop();
-  Serial.println(val, HEX);
+  pinMode(STRIKE_PIN, OUTPUT);
+  digitalWrite(STRIKE_PIN, LOW);
   
-  /* Open I2C library */
-  Wire.begin();
-
-  /* Slow the bus down */
-  //TWBR = 140; 
+  /* In order to overcome a bug in the AS3935, the only way to
+   * read register 0 is to bit bang it.
+   */
   
   /* Attach the normal ISR */
   attachInterrupt(0, normalIsr, RISING);
@@ -138,8 +116,6 @@ void setup(void) {
   now = millis();
   calTime = now+1*SEC_TO_MS;   /* First cal to be done in one second */
   bitTime = now+10*SEC_TO_MS;  /* First BIT to be done in 10 seconds */
-  calTime = 0xffffffff;
-  bitTime = 0xffffffff;
   
 } /* end setup */
 
@@ -178,12 +154,12 @@ void loop(void) {
       Serial.println(" b - Force BIT");
       
     /* Dump all registers */  
-    } else if (c == 'Dd') {
-      as3935_err(as3935_dump(0x0, 0x32), "d");
+    } else if (c == 'D') {
+      as3935_err(as3935_dump(0x0, 0x33), "D");
       
     /* Dump top registers */  
     } else if (c == 'd') {
-      as3935_err(as3935_dump(0x0, 0x32), "d");
+      as3935_err(as3935_dump(0x0, 9), "d");
       
     /* Force a calibration */  
     } else if (c == 'c') {
@@ -209,51 +185,10 @@ void loop(void) {
       } else {
         Serial.println("BIT failed");
       }
-
-    } else if (c == '0') {
-      as3935_err(i2c_read(AS3935_ADDR, REG00, &reg), "0");
-      Serial.print("Reg: 0x");
-      Serial.println(reg.data, HEX);
-      
-    } else if (c == '1') {
-      as3935_err(i2c_read(AS3935_ADDR, REG01, &reg), "1");
-      Serial.print("Reg: 0x");
-      Serial.println(reg.data, HEX);
-      
-      
-    } else if (c == 'q') {
-      si2c.start( AS3935_ADDR| I2C_WRITE);
-      si2c.write(0);
-      si2c.restart(AS3935_ADDR| I2C_READ);
-      val = si2c.read(1);  /* Read just one byte */
-      si2c.stop();
-      Serial.println(val, HEX);
-      
-      
-    } else if (c == 'w') {  
-      si2c.start( AS3935_ADDR| I2C_WRITE);
-      si2c.write(1);
-      si2c.restart(AS3935_ADDR| I2C_READ);
-      val = si2c.read(1);  /* Read just one byte */
-      si2c.stop();
-      Serial.println(val, HEX);
-      
-    } else if (c == 'D') {  
-      for (i=0; i<2; i++) {
-        si2c.start( AS3935_ADDR| I2C_WRITE);
-        si2c.write(i);
-        si2c.restart(AS3935_ADDR| I2C_READ);
-        val = si2c.read(1);  /* Read just one byte */
-        si2c.stop();
-        Serial.print(i, HEX);
-        Serial.print(" = ");
-        Serial.println(val, HEX);
-      }
       
     } else {
       /* Ignore anything else */
     }
-    
 
   } /* if a character is available */
 
@@ -402,6 +337,7 @@ INT8U calibrate(void) {
   INT16U  target;
   INT32U  cnt;
   INT8U   retval;
+  REG_u   reg;
   
 
   /* Attach the calibration ISR */
@@ -453,12 +389,10 @@ INT8U calibrate(void) {
       diff = TARGET - cnt;
     }
 
-#ifdef DEBUG
     Serial.print("Tune: ");
     Serial.print(i);
     Serial.print(" = ");
     Serial.println(diff);
-#endif
     
     /* Capture the smallest error */
     if (diff < bestTuneDiff) {
@@ -468,10 +402,8 @@ INT8U calibrate(void) {
     
   } /* Do next tune selection */
     
-#ifdef DEBUG  
   Serial.print("Best tune value: ");
   Serial.println(bestTuneValue);
-#endif  
 
   /* Insure this error meets the 3.5% */
   if (bestTuneDiff < ERR_THRESHOLD) {
