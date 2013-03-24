@@ -38,27 +38,29 @@ void as3935_err(INT8U err, char *str) {
  * Dump the first n registers
  *
  *********************************************************************/
-INT8U as3935_dump(INT8U n) {
+INT8U as3935_dump(INT8U s, INT8U n) {
   INT8U  i;
   REG_u  reg;
   INT8U  err;
+  INT8U  r;
   
-  for (i=1; i<n; i++) {
-    err = i2c_read(AS3935_ADDR, (RegisterID_e)i, &reg);
+  for (i=0; i<n; i++) {
+    r = i + s;
+    err = i2c_read(AS3935_ADDR, (RegisterID_e)r, &reg);
     if (err != 0) {
       Serial.println("Failed");
       break;
     }
-    Serial.print("Reg ");
-    Serial.print(i);
+    Serial.print("Reg 0x");
+    Serial.print(r, HEX);
     Serial.print(" = ");
     Serial.println(reg.data, HEX);
+    delay(25);
   }
   
   return(err);
    
 } /* end as3935_dump */
-
 
 /**********************************************************************
  *
@@ -254,33 +256,22 @@ INT8U as3935_get_spike_rejection(INT8U *val) {
  *********************************************************************/
 INT8U as3935_calibrate_rco(void) {
   REG_u  reg8;
+  REG_u  reg;
   INT8U  err;
-  INT8U  v = 0x61;
-  
   
   // Send Direct command CALIB_RCO
-  err = i2c_write(AS3935_ADDR, REG_CAL_RCO, *((REG_u*)&v));
+  reg.data = 0x96;
+  err = i2c_write(AS3935_ADDR, REG_CAL_RCO, reg);
   
   if (err == 0) {
 
     // Wait for it to stabilize
     delay(10);
   
-    // Set the display TRCO bit
-    err = i2c_read(AS3935_ADDR, REG08, &reg8);
-    if (err == 0) {
-      reg8.R8.DISP_TRCO = 1;
-      err = i2c_write(AS3935_ADDR, REG08, reg8);
-      if (err == 0) {
-        
-        // Wait 
-        delay(10);
-        
-        // Clear the display TRCO bit
-        reg8.R8.DISP_TRCO = 0;
-        err = i2c_write(AS3935_ADDR, REG08, reg8);
-      }
-    }
+    as3935_err(as3935_display_trco_on_irq(1), "trco on");
+    delay(2);
+    as3935_err(as3935_display_trco_on_irq(0), "trco off");
+
   }
   return (err);
   

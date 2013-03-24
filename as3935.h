@@ -153,7 +153,9 @@ INT8U               as3935_set_tune_cap(INT8U cap);
 INT8U               as3935_get_tune_cap(INT8U *val);
 INT8U               as3935_set_freq_div_ratio(LCO_DIV_e div_ratio);
 INT8U               as3935_calibrate(void);
-INT8U               as3935_dump(INT8U n);
+INT8U               as3935_dump(INT8U s, INT8U n);
+INT8U               as3935_calibrate_rco(void);
+
 
 
 #endif

@@ -9,6 +9,8 @@
 #include "I2C.h"
 
 
+
+
 /**********************************************************************
  *
  * I2C read routine
@@ -46,13 +48,11 @@ INT8U i2c_read(INT8U add, RegisterID_e reg, REG_u *val) {
     
     /* Make sure we got the byte we needed */
     n = Wire.available();
-      
+    
     /* Check for the right number of bytes */
     if (n != 1) {
      
       retval = 5;
-      Serial.print("n=");
-      Serial.println(n);
       
     } else {
     
@@ -60,6 +60,8 @@ INT8U i2c_read(INT8U add, RegisterID_e reg, REG_u *val) {
       val->data = Wire.read();
     }
     
+  } else {
+    Serial.println("kdkd");
   }
   
   return(retval);
