@@ -11,14 +11,45 @@
  * backup, or shutting down a computer network.
  *
  * Hardware:
+ * This project is Arduino based. It was implemented with an Arduino Pro
+ * Mini 328 5V0 from Sparkfun. Most any Arduino could be used with minor
+ * alterations to the wiring or code.
+ * Connected to the Arduino are the following devices:
+ * 1) AS3935 Lightning Detector 
  * The Embedded Adventure AS3935 lightning detector breakout board (BoB)
- * is the basis of this system. It connects to an Arduino with a few
- * simple connections. These are power and ground and the clock (SCL)
- * and the data (SDA) lines for the I2C bus as well a an interrupt line.
- * The I2C lines connect to the pins on the Arduino that support the 
- * hardware I2C peripheral. These pins on an Arduino Uno are labeled
- * A4 and A5. The interrupt line connects to the D2 pin on an Arduino
- * Uno. The serial connection to the PC is done via the USB cable. 
+ * was used for this system. It takes power and ground from the Arduino.
+ * Communication to the Arduino is provided by a two wire I2C bus.
+ * Although the I2C lines are connected to the pins on the Arduino that
+ * support the hardware I2C peripheral, the system uses bit-banging for
+ * communication. This is only because the @#$#! chip has a bug in its
+ * I2C interface. If the chip is strapped for device ID 0, it will not
+ * allow you to read register 0 unless you ignore the NAK from the device
+ * read address cycle. This is not a simple job using an unmodified Arduino
+ * Wire library. The I2C pins on an Arduino Uno are labeled A4 and A5. 
+ * An interrupt line is also used to allow the AS3935 to signal the Arduino
+ * when it detects various events including lightning strikes. This singal
+ * is connected to D2 on the Arduino that acts as Interrupt 0.
+ *
+ * 2) RS-232 level converter
+ * The Arduino talks to a host over RS-232. Since the Pro Mini does not 
+ * include an RS-232 level converter, a Sparkfun RS232 Shifter (PRT-00449)
+ * is used. This is connected to the serial TX and RX lines. This serial
+ * port is also used to program the Arduino using the serial bootloader.
+ *
+ * 3) LED
+ * A simple LED is connected to the Arduino for status. It will flash for
+ * each interrupt occuring.
+ *
+ * 4) Audio Alarm
+ * An audio alarm is connected to the Arduino to provide an alarm for 
+ * approaching storms. The duration of the warming sounds will increase as
+ * the storm approaches.
+ *
+ * 5) Momentary switch
+ * A momentary switch is provided to silence the audio alarm. Pressing the
+ * switch will silence the alarm till the detector does not see a strike in
+ * in one hour.
+ *
  *
  * Software:
  * The software configures the AS3935 device and then sits in a loop
@@ -62,8 +93,11 @@
 #define SDA_PIN A4
 #define SCL_PIN A5
 
-/* Pin used for strike generator */
-#define STRIKE_PIN 4
+
+#define STRIKE_PIN  4    /* Pin used for strike generator */
+#define ALARM_PIN   5    /* Pin used for an audio alarm */
+#define LED_PIN     6    /* Pin used for an LED alarm */
+#define SILENCE_PIN 7    /* Pin used for an alarm silence alarm */
 
 /* Delay needed from INT to reading ISR */
 #define ISR_DELAY (3)
@@ -73,13 +107,20 @@
  * Global data
  *
  *********************************************************************/
-volatile INT32U counter   = 0; /* ISR counter */
-volatile INT8U  isrFlag   = 0; /* Normal ISR flag */
-volatile INT32U bitCnt    = 0; /* BIT ISR counter */
-         INT32U calTime   = 0; /* Time to do the next calibration */
-         INT32U bitTime   = 0; /* Time to do the next BIT */
+volatile INT32U counter     = 0; /* ISR counter */
+volatile INT8U  isrFlag     = 0; /* Normal ISR flag */
+volatile INT32U bitCnt      = 0; /* BIT ISR counter */
+         INT32U calTime     = 0; /* Time to do the next calibration */
+         INT32U bitTime     = 0; /* Time to do the next BIT */
+         INT32U ledTime     = 0; /* Time to turn off the LED */
+         INT32U alarmTime   = 0; /* Time to turn off the alarm */
+         INT32U silenceTime = 0; /* Time to turn off the alarm */
+         bool   silence     = false;
          
 SoftI2cMaster si2c(SDA_PIN, SCL_PIN);  /* Bit-Bang I2C */
+
+INT16 determineDistance(INT8U val);
+
 
 /**********************************************************************
  *
@@ -99,12 +140,21 @@ void setup(void) {
   /* Indicate we started */
   Serial.println("Striker starting");
   
+  /* Configure lightning simulator control pin */
   pinMode(STRIKE_PIN, OUTPUT);
   digitalWrite(STRIKE_PIN, LOW);
   
-  /* In order to overcome a bug in the AS3935, the only way to
-   * read register 0 is to bit bang it.
-   */
+  /* Configure audio alarm pin */
+  pinMode(ALARM_PIN, OUTPUT);
+  digitalWrite(ALARM_PIN, LOW);
+  
+  /* Configure LED alarm pin */
+  pinMode(LED_PIN, OUTPUT);
+  digitalWrite(LED_PIN, LOW);
+  
+  /* Configure alarm silence switch input pin */
+  pinMode(LED_PIN, INPUT);
+  digitalWrite(LED_PIN, HIGH); /* enable pullup */
   
   /* Attach the normal ISR */
   attachInterrupt(0, normalIsr, RISING);
@@ -137,6 +187,12 @@ void loop(void) {
   char              c;
   REG_u             reg;
   int               i;
+  INT16             km;
+  INT16             dt;
+
+
+  /* Get current time */
+  now = millis();
   
 
   /* If a character is recieved */  
@@ -197,6 +253,10 @@ void loop(void) {
 
     /* Clear the flag */    
     isrFlag = 0;
+    
+    /* Turn on the LED */
+    digitalWrite(LED_PIN, HIGH);
+    ledTime = now + 500;
 
     /* Get the reason for the interrupt */    
     as3935_err(as3935_get_interrupt_reason(&reason), "get_isr");
@@ -219,13 +279,32 @@ void loop(void) {
 
       case INT_STRIKE:
         Serial.println("Strike");
+                
+        /* Dump registers for review */
+        as3935_err(as3935_dump(0, 0x9), "strike");
+
         as3935_err(as3935_get_energy_calc(&power), "get-power");
         as3935_err(as3935_get_storm_distance(&dist), "get-dist");
         Serial.print("Pwr: ");
         Serial.print(power);
         Serial.print(" Dist: ");
-        Serial.print(dist);
+        km = determineDistance(dist);
+        Serial.print(km);
         Serial.println("");
+        
+        /* Turn on audio alarm */
+        /* The equation gives us a 1/2 second alarm at 40km and 2 seconds overhead */
+        if (!silence) {
+          digitalWrite(ALARM_PIN, HIGH);
+          dt = (2000 - km*38);
+          if (dt < 500) dt = 500;
+          if (dt > 2000) dt = 2000;
+          alarmTime = now + (INT32U)dt;
+        }
+
+        /* Set time for silence experation */
+        silenceTime = now + 1*60*60*1000;
+
 
         break;
 
@@ -236,9 +315,37 @@ void loop(void) {
 
   }
 
-  /* Get current time */
-  now = millis();
+  /****************************************/
+  /* Turn off LED if needed               */
+  /****************************************/
+  if (now > ledTime) {
+    digitalWrite(LED_PIN, LOW);
+    ledTime = 0;
+  }
 
+  /****************************************/
+  /* Turn off alarm if needed             */
+  /****************************************/
+  if (now > alarmTime) {
+    digitalWrite(ALARM_PIN, LOW);
+    alarmTime = 0;
+  }
+
+  /****************************************/
+  /* Reanable alarm                       */
+  /****************************************/
+  if (now > silenceTime) {
+    silence = false;
+    silenceTime = 0;
+  }
+  
+  /****************************************/
+  /* Monitor alarm silence switch         */
+  /****************************************/
+  if (digitalRead(SILENCE_PIN) == LOW) {
+    digitalWrite(ALARM_PIN, LOW);
+    silence = true;
+  }
 
   /****************************************/
   /* Perform calibration every 30 minutes */
@@ -257,7 +364,7 @@ void loop(void) {
     }
     
     /* Dump registers for review */
-    as3935_err(as3935_dump(0, 0x32), "dump");
+    as3935_err(as3935_dump(0, 0x33), "cal");
 
   }
 
@@ -467,8 +574,28 @@ INT8U bitTest(void) {
 
   /* Attach the normal isr */
   attachInterrupt(0, normalIsr, RISING);
+  
+  /* Dump registers for review */
+  as3935_err(as3935_dump(0, 0x33), "cal");
 
   return retval;
 
 } /* end bitTest */
+
+
+/**********************************************************************
+ *
+ * Converted coded value to distance in km
+ * Equation is the best fit from the datasheet
+ *
+ *********************************************************************/
+INT16 determineDistance(INT8U val) {
+  INT16 retval;
+  if (val == 0x3f) {
+    retval = 100;
+  } else {
+    retval = val;
+  }
+  return retval;
+}
 
