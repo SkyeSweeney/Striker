@@ -153,8 +153,8 @@ void setup(void) {
   digitalWrite(LED_PIN, LOW);
   
   /* Configure alarm silence switch input pin */
-  pinMode(LED_PIN, INPUT);
-  digitalWrite(LED_PIN, HIGH); /* enable pullup */
+  pinMode(SILENCE_PIN, INPUT);
+  digitalWrite(SILENCE_PIN, HIGH); /* enable pullup */
   
   /* Attach the normal ISR */
   attachInterrupt(0, normalIsr, RISING);
@@ -242,6 +242,24 @@ void loop(void) {
         Serial.println("BIT failed");
       }
       
+    /* Force an long alarm */  
+    } else if (c == 'A') {
+      startAlarm(now, 1);
+      
+    /* Force an short alarm */  
+    } else if (c == 'a') {
+      startAlarm(now, 40);
+      
+    /* Reenable alarm */  
+    } else if (c == 'S') {
+      silence = false;
+      Serial.println("Alarm activated");
+      
+    /* Silence alarm */  
+    } else if (c == 's') {
+      silence = true;
+      Serial.println("Alarm silenced");
+      
     } else {
       /* Ignore anything else */
     }
@@ -292,15 +310,7 @@ void loop(void) {
         Serial.print(km);
         Serial.println("");
         
-        /* Turn on audio alarm */
-        /* The equation gives us a 1/2 second alarm at 40km and 2 seconds overhead */
-        if (!silence) {
-          digitalWrite(ALARM_PIN, HIGH);
-          dt = (2000 - km*38);
-          if (dt < 500) dt = 500;
-          if (dt > 2000) dt = 2000;
-          alarmTime = now + (INT32U)dt;
-        }
+        startAlarm(now, km);
 
         /* Set time for silence experation */
         silenceTime = now + 1*60*60*1000;
@@ -318,7 +328,7 @@ void loop(void) {
   /****************************************/
   /* Turn off LED if needed               */
   /****************************************/
-  if (now > ledTime) {
+  if ((ledTime != 0) && (now > ledTime)) {
     digitalWrite(LED_PIN, LOW);
     ledTime = 0;
   }
@@ -326,7 +336,7 @@ void loop(void) {
   /****************************************/
   /* Turn off alarm if needed             */
   /****************************************/
-  if (now > alarmTime) {
+  if ((alarmTime != 0) && (now > alarmTime)) {
     digitalWrite(ALARM_PIN, LOW);
     alarmTime = 0;
   }
@@ -334,17 +344,19 @@ void loop(void) {
   /****************************************/
   /* Reanable alarm                       */
   /****************************************/
-  if (now > silenceTime) {
+  if ((silenceTime != 0) && (now > silenceTime)) {
     silence = false;
-    silenceTime = 0;
+    silenceTime = 0xffffffff;
+    Serial.println("Silence renabled");
   }
   
   /****************************************/
   /* Monitor alarm silence switch         */
   /****************************************/
-  if (digitalRead(SILENCE_PIN) == LOW) {
+  if ((!silence) && (digitalRead(SILENCE_PIN) == LOW)) {
     digitalWrite(ALARM_PIN, LOW);
     silence = true;
+    Serial.println("Alarm silenced");
   }
 
   /****************************************/
@@ -599,3 +611,20 @@ INT16 determineDistance(INT8U val) {
   return retval;
 }
 
+/**********************************************************************
+ *
+ *
+ *********************************************************************/
+void startAlarm(INT32U now, INT16 km) {
+  INT16 dt;
+  
+  /* Turn on audio alarm */
+  /* The equation gives us a 1/2 second alarm at 40km and 2 seconds overhead */
+  if (!silence) {
+    digitalWrite(ALARM_PIN, HIGH);
+    dt = (2000 - km*38);
+    if (dt < 500) dt = 500;
+    if (dt > 2000) dt = 2000;
+    alarmTime = now + (INT32U)dt;
+  }
+}
