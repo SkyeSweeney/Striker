@@ -9,8 +9,6 @@ the TBD library was used. The bug prevents ready access to register 0 as the chi
 The application uses a library for the I2C interface as well as one for the AS3935 specific functions. The code
 provides periodinc tuning of the antenna circuit as well as built-in-test is an auxilary spark generator is 
 connected to the system. 
+
 The principle output of the Arduino is a serial data stream that contains strings that can be parsed by a host PC to 
 provide the functionality needed. It also provides a LED and horn alarm with a silence button.
-
--Skye Sweeney
-Skye@FLL-Freak.com
