@@ -32,6 +32,34 @@ void as3935_err(INT8U err, char *str) {
   }
 }
 
+/**********************************************************************
+ *
+ * Read a generic register
+ *
+ *********************************************************************/
+INT8U as3935_read(RegisterID_e reg, REG_u *val) {
+  return(io_read(reg, val));
+}
+
+/**********************************************************************
+ *
+ * Write a generic register
+ *
+ *********************************************************************/
+INT8U as3935_write(RegisterID_e reg, REG_u val) {
+  return(io_write(reg, val));
+}
+
+
+/**********************************************************************
+ *
+ * Set the address
+ *
+ *********************************************************************/
+void as3935_init(INT8U add) {
+  as3935_addr = add;
+}
+
 
 /**********************************************************************
  *
@@ -46,7 +74,7 @@ INT8U as3935_dump(INT8U s, INT8U n) {
   
   for (i=0; i<n; i++) {
     r = i + s;
-    err = i2c_read(AS3935_ADDR, (RegisterID_e)r, &reg);
+    err = io_read((RegisterID_e)r, &reg);
     if (err != 0) {
       Serial.println("Failed");
       break;
@@ -71,10 +99,10 @@ INT8U as3935_set_powerdown(INT8U pwr) {
   REG_u reg0;
   INT8U err;
   
-  err = i2c_read(AS3935_ADDR, REG00, &reg0);
+  err = io_read(REG00, &reg0);
   if (err == 0) {
     reg0.R0.PWD = pwr;
-    err = i2c_write(AS3935_ADDR, REG00, reg0);
+    err = io_write(REG00, reg0);
   }
   return(err);
 }
@@ -89,7 +117,7 @@ INT8U as3935_get_powerdown(INT8U *val) {
   REG_u reg0;
   INT8U err;
   
-  err = i2c_read(AS3935_ADDR, REG00, &reg0);
+  err = io_read(REG00, &reg0);
   if (err == 0) {
     *val = reg0.R0.PWD;
   } else {
@@ -108,10 +136,10 @@ INT8U as3935_set_afe(INT8U gain) {
   REG_u reg0;
   INT8U err;
   
-  err = i2c_read(AS3935_ADDR, REG00, &reg0);
+  err = io_read(REG00, &reg0);
   if (err == 0) {
     reg0.R0.AFE_GB = gain;
-    err = i2c_write(AS3935_ADDR, REG00, reg0);
+    err = io_write(REG00, reg0);
   }
   return(err);
 }
@@ -126,7 +154,7 @@ INT8U as3935_get_afe(INT8U *val) {
   REG_u reg0;
   INT8U err;
 
-  err = i2c_read(AS3935_ADDR, REG00, &reg0);
+  err = io_read(REG00, &reg0);
   if (err == 0) {
     *val = reg0.R0.AFE_GB;
   } else {
@@ -145,10 +173,10 @@ INT8U as3935_set_watchdog_threshold(INT8U threshold) {
   REG_u reg1;
   INT8U err;
   
-  err = i2c_read(AS3935_ADDR, REG01, &reg1);
+  err = io_read(REG01, &reg1);
   if (err == 0) {
     reg1.R1.WDTH = threshold;
-    err = i2c_write(AS3935_ADDR, REG01, reg1);
+    err = io_write(REG01, reg1);
   }
   return(err);
 }
@@ -163,7 +191,7 @@ INT8U as3935_get_watchdog_threshold(INT8U *val) {
   REG_u reg1;
   INT8U err;
 
-  err = i2c_read(AS3935_ADDR, REG01, &reg1);
+  err = io_read(REG01, &reg1);
   if (err == 0) {
     *val = reg1.R1.WDTH;
   } else {
@@ -183,10 +211,10 @@ INT8U as3935_set_noise_floor_level(INT8U nfl) {
   REG_u reg1;
   INT8U err;
   
-  err = i2c_read(AS3935_ADDR, REG01, &reg1);
+  err = io_read(REG01, &reg1);
   if (err == 0) {
     reg1.R1.NF_LEV = nfl;
-    err = i2c_write(AS3935_ADDR, REG01, reg1);
+    err = io_write(REG01, reg1);
   }
   return(err);
 }
@@ -201,7 +229,7 @@ INT8U as3935_get_noise_floor_level(INT8U *val) {
   REG_u reg1;
   INT8U err;
 
-  err = i2c_read(AS3935_ADDR, REG01, &reg1);
+  err = io_read(REG01, &reg1);
   if (err == 0) {
     *val = reg1.R1.NF_LEV;
   } else {
@@ -220,10 +248,10 @@ INT8U as3935_set_spike_rejection(INT8U srej) {
   REG_u reg2;
   INT8U err;
 
-  err = i2c_read(AS3935_ADDR, REG02, &reg2);
+  err = io_read(REG02, &reg2);
   if (err == 0) {
     reg2.R2.SREJ = srej;
-    err = i2c_write(AS3935_ADDR, REG02, reg2);
+    err = io_write(REG02, reg2);
   } 
   return(err);
   
@@ -239,7 +267,7 @@ INT8U as3935_get_spike_rejection(INT8U *val) {
   REG_u reg2;
   INT8U err;
 
-  err = i2c_read(AS3935_ADDR, REG02, &reg2);
+  err = io_read(REG02, &reg2);
   if (err == 0) {
     *val = reg2.R2.SREJ;
   } else {
@@ -261,7 +289,7 @@ INT8U as3935_calibrate_rco(void) {
   
   // Send Direct command CALIB_RCO
   reg.data = 0x96;
-  err = i2c_write(AS3935_ADDR, REG_CAL_RCO, reg);
+  err = io_write(REG_CAL_RCO, reg);
   
   if (err == 0) {
 
@@ -292,18 +320,18 @@ INT8U as3935_get_energy_calc(INT32U *val) {
   e.bits8[0] = 0;
   
   //  REG0x06[4:0] S_LIG_MM
-  err = i2c_read(AS3935_ADDR, REG06, &reg6);
+  err = io_read(REG06, &reg6);
   if (err == 0) {
     
     e.bits8[1] = reg6.R6.S_LIG_MM;
     
     //   REG0x05[7:0] S_LIG_M
-    err = i2c_read(AS3935_ADDR, REG05, &reg);
+    err = io_read(REG05, &reg);
     if (err == 0) {
       e.bits8[2] = reg.data;
       
       //  REG0x04[7:0]  S_LIG_L
-      err = i2c_read(AS3935_ADDR, REG04, &reg);
+      err = io_read(REG04, &reg);
       if (err == 0) {
         e.bits8[3] = reg.data;
       
@@ -326,7 +354,7 @@ INT8U as3935_get_storm_distance(INT8U *val) {
  
   *val = 0;
 
-  err = i2c_read(AS3935_ADDR, REG07, &reg7);
+  err = io_read(REG07, &reg7);
   if (err == 0) {
     *val = reg7.R7.DISTANCE;
   }
@@ -348,7 +376,7 @@ INT8U as3935_get_interrupt_reason(InterruptReason_e *val) {
   /* Datasheet indicates that the INT field only updates after 2ms!!!
    * What a piece of crap. */
   delay(2); 
-  err = i2c_read(AS3935_ADDR, REG03, &reg3);
+  err = io_read(REG03, &reg3);
   if (err == 0) {
     *val = (InterruptReason_e)reg3.R3.INT;
   }
@@ -365,10 +393,10 @@ INT8U as3935_set_minimum_lightning(MinStrikes_e min) {
   REG_u reg2;
   INT8U err;
 
-  err = i2c_read(AS3935_ADDR, REG02, &reg2);
+  err = io_read(REG02, &reg2);
   if (err == 0) {
     reg2.R2.MIN_NUM_LIGHT = min;
-    err = i2c_write(AS3935_ADDR, REG02, reg2);
+    err = io_write(REG02, reg2);
   }
   return(err);
 }
@@ -383,7 +411,7 @@ INT8U as3935_get_minimum_lightning(MinStrikes_e *val) {
   REG_u reg2;
   INT8U err;
   
-  err = i2c_read(AS3935_ADDR, REG02, &reg2);
+  err = io_read(REG02, &reg2);
   if (err == 0) {
     *val = (MinStrikes_e)reg2.R2.MIN_NUM_LIGHT;
   } else {
@@ -402,16 +430,16 @@ INT8U as3936_clear_statistics(void) {
   REG_u reg2;
   INT8U err;
 
-  err = i2c_read(AS3935_ADDR, REG02, &reg2);
+  err = io_read(REG02, &reg2);
   if (err == 0) {
     reg2.R2.CL_STAT = 1;
-    err = i2c_write(AS3935_ADDR, REG02, reg2);
+    err = io_write(REG02, reg2);
     if (err == 0) {
       reg2.R2.CL_STAT = 0;
-      err = i2c_write(AS3935_ADDR, REG02, reg2);
+      err = io_write(REG02, reg2);
       if (err == 0) {
         reg2.R2.CL_STAT = 1;
-        err = i2c_write(AS3935_ADDR, REG02, reg2);
+        err = io_write(REG02, reg2);
       }
     }
   }
@@ -428,10 +456,10 @@ INT8U as3935_set_freq_div_ratio(LCO_DIV_e div_ratio) {
   REG_u reg3;
   INT8U err;
 
-  err = i2c_read(AS3935_ADDR, REG03, &reg3);
+  err = io_read(REG03, &reg3);
   if (err == 0) {
     reg3.R3.LCO_FDIV = div_ratio;
-    err = i2c_write(AS3935_ADDR, REG03, reg3);
+    err = io_write(REG03, reg3);
   }
   return(err);
 }
@@ -446,10 +474,10 @@ INT8U as3935_set_mask_disturber(INT8U mask) {
   REG_u reg3;
   INT8U err;
 
-  err = i2c_read(AS3935_ADDR, REG03, &reg3);
+  err = io_read(REG03, &reg3);
   if (err == 0) {
     reg3.R3.MASK_DIST = mask;
-    err = i2c_write(AS3935_ADDR, REG03, reg3);
+    err = io_write(REG03, reg3);
   }
   return(err);
 }
@@ -465,7 +493,7 @@ INT8U as3935_reset_registers(void) {
   INT8U err;
   
   val.data = MAGIC_VALUE;
-  err = i2c_write(AS3935_ADDR, REG_RESET, val);
+  err = io_write(REG_RESET, val);
   return(err);
 }
 
@@ -479,10 +507,10 @@ INT8U as3935_display_responance_freq_on_irq(INT8U on) {
   REG_u reg8;
   INT8U err;
 
-  err = i2c_read(AS3935_ADDR, REG08, &reg8);
+  err = io_read(REG08, &reg8);
   if (err == 0) {
     reg8.R8.DISP_LCO = on;
-    err = i2c_write(AS3935_ADDR, REG08, reg8);
+    err = io_write(REG08, reg8);
   } 
   return(err);
 }    
@@ -497,10 +525,10 @@ INT8U as3935_display_srco_on_irq(INT8U on) {
   REG_u reg8;
   INT8U err;
 
-  err = i2c_read(AS3935_ADDR, REG08, &reg8);
+  err = io_read(REG08, &reg8);
   if (err == 0) {
     reg8.R8.DISP_SRCO = on;
-    err = i2c_write(AS3935_ADDR, REG08, reg8);
+    err = io_write(REG08, reg8);
   }
   return(err);
 }    
@@ -515,10 +543,10 @@ INT8U as3935_display_trco_on_irq(INT8U on) {
   REG_u reg8;
   INT8U err;
 
-  err = i2c_read(AS3935_ADDR, REG08, &reg8);
+  err = io_read(REG08, &reg8);
   if (err == 0) {
     reg8.R8.DISP_TRCO = on;
-    err = i2c_write(AS3935_ADDR, REG08, reg8);
+    err = io_write(REG08, reg8);
   }
   return(err);
 }    
@@ -534,10 +562,10 @@ INT8U as3935_set_tune_cap(INT8U cap) {
   INT8U err;
   INT8U i;
 
-  err = i2c_read(AS3935_ADDR, REG08, &reg8);
+  err = io_read(REG08, &reg8);
   if (err == 0) {
     reg8.R8.TUN_CAP = cap;
-    err = i2c_write(AS3935_ADDR, REG08, reg8);
+    err = io_write(REG08, reg8);
   }
   return(err);
 }
@@ -552,7 +580,7 @@ INT8U as3935_get_tune_cap(INT8U *val) {
   REG_u reg8;
   INT8U err;
 
-  err = i2c_read(AS3935_ADDR, REG08, &reg8);
+  err = io_read(REG08, &reg8);
   if (err == 0) {
     *val = reg8.R8.TUN_CAP;
   } else {

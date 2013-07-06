@@ -9,8 +9,13 @@
 #include "I2C.h"
 
 
+#ifdef USE_I2C
 
-#if 1
+#define SOFT_I2C
+#ifdef SOFT_I2C
+
+SoftI2cMaster si2c(SDA_PIN, SCL_PIN);  /* Bit-Bang I2C */
+
 
 /**********************************************************************
  *
@@ -147,4 +152,5 @@ INT8U i2c_write(INT8U add, RegisterID_e reg, REG_u val) {
   return(retval);
 
 }
+#endif
 #endif

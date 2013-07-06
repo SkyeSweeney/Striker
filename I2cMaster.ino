@@ -17,6 +17,7 @@
  * along with the Arduino I2cMaster Library.  If not, see
  * <http://www.gnu.org/licenses/>.
  */
+ #ifdef USE_I2C
 #include <I2cMaster.h>
 //==============================================================================
 // WARNING don't change SoftI2cMaster unless you verify the change with a scope
@@ -130,3 +131,4 @@ bool SoftI2cMaster::write(uint8_t data) {
   digitalWrite(sdaPin_, LOW);
   return rtn == 0;
 }
+#endif

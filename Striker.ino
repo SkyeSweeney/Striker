@@ -77,11 +77,26 @@
  *
  *
  *********************************************************************/
+
+/*!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ * Only one interface should be selected.
+ *!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!*/
+#define USE_I2C
+//#define USE_SPI
+
+
 #include <Wire.h>
 #include "MyTypes.h"
 #include "as3935.h"
+
+#ifdef USE_I2C
 #include "I2C.h"
 #include "I2cMaster.h"
+#endif
+
+#ifdef USE_SPI
+  #include <SPI.h>
+#endif
 
 
 /* Helpful conversions */
@@ -90,10 +105,21 @@
 #define HR_TO_MS   (1000L*60L*60L)
 
 /* Pins used for I2C */
+#ifdef USE_I2C
 #define SDA_PIN A4
 #define SCL_PIN A5
+#endif
+
+/* Pins for SPI */
+#ifdef USE_SPI
+#define SS_PIN   10
+#define MOSI_PIN 11
+#define MISO_PIN 12
+#define SCLK_PIN 13
+#endif
 
 
+/* Pins used for other features */
 #define STRIKE_PIN  4    /* Pin used for strike generator */
 #define ALARM_PIN   5    /* Pin used for an audio alarm */
 #define LED_PIN     6    /* Pin used for an LED alarm */
@@ -101,6 +127,10 @@
 
 /* Delay needed from INT to reading ISR */
 #define ISR_DELAY (3)
+
+/* Enable these to allow functionality */
+#define ENABLE_CAL
+#define ENABLE_BIT
 
 /**********************************************************************
  *
@@ -116,8 +146,10 @@ volatile INT32U bitCnt      = 0; /* BIT ISR counter */
          INT32U alarmTime   = 0; /* Time to turn off the alarm */
          INT32U silenceTime = 0; /* Time to turn off the alarm */
          bool   silence     = false;
-         
-SoftI2cMaster si2c(SDA_PIN, SCL_PIN);  /* Bit-Bang I2C */
+         char   cmd[32];
+         INT32U now;
+         INT8U  iCmd        = 0;
+       
 
 INT16 determineDistance(INT8U val);
 
@@ -130,7 +162,6 @@ INT16 determineDistance(INT8U val);
 void setup(void) {
   REG_u  reg;
   INT8U  err;
-  INT32U now;
   INT8U  thres;
   INT8U  val;
   
@@ -158,9 +189,11 @@ void setup(void) {
   
   /* Attach the normal ISR */
   attachInterrupt(0, normalIsr, RISING);
+
+  /* Initialize the IO subsystem to talk to the AS3935 */  
+  io_init();
   
-  /* Set unit into operation mode */
-  as3935_err(as3935_set_powerdown(0), "pwron");
+  /* Set unit into operation mode ???*/
 
   /* Prime the various times */
   now = millis();
@@ -177,7 +210,6 @@ void setup(void) {
  *********************************************************************/
 void loop(void) {
   InterruptReason_e reason;
-  INT32U            now;
   INT32U            power;
   INT8U             bitResults;
   INT8U             calResult;
@@ -193,7 +225,6 @@ void loop(void) {
 
   /* Get current time */
   now = millis();
-  
 
   /* If a character is recieved */  
   if (Serial.available() > 0) {
@@ -201,68 +232,21 @@ void loop(void) {
     /* Get the character */
     c = Serial.read();
     
-    /* Help */
-    if (c == '?') {
-      Serial.println("Help:");
-      Serial.println(" D - Dump all registers");
-      Serial.println(" d - Dump prime registers");
-      Serial.println(" c - Force calibration");
-      Serial.println(" b - Force BIT");
+    /* If end of string */
+    if (c == '\r') {
       
-    /* Dump all registers */  
-    } else if (c == 'D') {
-      as3935_err(as3935_dump(0x0, 0x33), "D");
+      cmd[iCmd] = 0;
+      parseCommand();
+      iCmd = 0;
       
-    /* Dump top registers */  
-    } else if (c == 'd') {
-      as3935_err(as3935_dump(0x0, 9), "d");
-      
-    /* Force a calibration */  
-    } else if (c == 'c') {
-      
-      calResult = calibrate();
-  
-      /* Process calibration results */
-      if (calResult == 1) {
-        Serial.println("Calibration passed");
-      } else {
-        Serial.println("Calibration failed");
-      }      
-    
-    /* Force a BIT */  
-    } else if (c == 'b') {
-      
-      /* Run BIT */
-      bitResults = bitTest();
-  
-      /* Process BIT results */
-      if (bitResults == 1) {
-        Serial.println("BIT passed");
-      } else {
-        Serial.println("BIT failed");
-      }
-      
-    /* Force an long alarm */  
-    } else if (c == 'A') {
-      startAlarm(now, 1);
-      
-    /* Force an short alarm */  
-    } else if (c == 'a') {
-      startAlarm(now, 40);
-      
-    /* Reenable alarm */  
-    } else if (c == 'S') {
-      silence = false;
-      Serial.println("Alarm activated");
-      
-    /* Silence alarm */  
-    } else if (c == 's') {
-      silence = true;
-      Serial.println("Alarm silenced");
+    } else if (c == '\n') {
+      /* Ignore */
       
     } else {
-      /* Ignore anything else */
+      cmd[iCmd] = c;
+      iCmd++;
     }
+    
 
   } /* if a character is available */
 
@@ -271,6 +255,9 @@ void loop(void) {
 
     /* Clear the flag */    
     isrFlag = 0;
+    
+    /* Wait the time delay before the service register can be read */
+    delay(ISR_DELAY);
     
     /* Turn on the LED */
     digitalWrite(LED_PIN, HIGH);
@@ -367,6 +354,7 @@ void loop(void) {
     /* Set next cal time */
     calTime = now + 30*MIN_TO_MS;
     
+#ifdef ENABLE_CAL
     /* Perform calibration */
     calResult = calibrate();
 
@@ -376,7 +364,8 @@ void loop(void) {
     }
     
     /* Dump registers for review */
-    as3935_err(as3935_dump(0, 0x33), "cal");
+    as3935_err(as3935_dump(0, 0x9), "cal");
+#endif
 
   }
 
@@ -388,6 +377,7 @@ void loop(void) {
     /* Set next BIT time */
     bitTime = now + 60*MIN_TO_MS;
 
+#ifdef ENABLE_BIT
     /* Run BIT */
     bitResults = bitTest();
 
@@ -397,12 +387,269 @@ void loop(void) {
     }
     
     /* Dump registers for review */
-    as3935_err(as3935_dump(0, 0x32), "dump");
+    as3935_err(as3935_dump(0, 0x9), "dump");
+#endif
     
   }
   
 } /* end loop */
 
+
+
+/**********************************************************************
+ *
+ * Parse an incomming command in string cmd
+ *
+ *********************************************************************/
+void parseCommand(void) {
+  char              c;
+  INT8U             calResult;
+  INT8U             bitResults;
+  char             *p;
+  REG_u             reg;
+  INT8U             r;
+  INT8U             val;
+
+  /* Start parsing the string */
+  p = strtok(cmd, " ");
+  if (p == NULL) return;
+  
+  /* First character used as command */
+  c = *p;
+
+  /* Help */
+  if (c == '?') {
+    Serial.println("Help:");
+    Serial.println(" D - Dump all registers");
+    Serial.println(" d - Dump prime registers");
+    Serial.println(" c - Force calibration");
+    Serial.println(" b - Force BIT");
+    Serial.println(" r reg - Read reg");
+    Serial.println(" w reg val - Write cal to reg");
+    Serial.println(" R - Reset chip");
+    Serial.println(" i - Disable interrupts");
+    Serial.println(" I - Enable interrupts");
+    Serial.println(" g - Get gain");
+    Serial.println(" G val - Set gain to val");
+    Serial.println(" t - Get WDTH threshold");
+    Serial.println(" T val - Set WDTH threshold");
+    Serial.println(" s - Get spike rejection");
+    Serial.println(" S val - Set spike rejection");
+    Serial.println(" n - Get noise level");
+    Serial.println(" N val - Set noise level");
+    Serial.println(" q addr - Set I2C address");
+    Serial.println(" Q - Get I2C address");
+    
+  /* Read register */  
+  } else if (c == 'r') {
+    p = strtok(NULL, " ");
+    if (p == NULL) return;
+    r = strtol(p, NULL, 16);
+    as3935_err(as3935_read((RegisterID_e)r, &reg), "r");
+    
+    Serial.print("Reg 0x");
+    Serial.print(r, HEX);
+    Serial.print(" = ");
+    Serial.println(reg.data, HEX);
+
+    
+  /* Write register */  
+  } else if (c == 'w') {
+    
+    /* Read register */
+    p = strtok(NULL, " ");
+    if (p == NULL) return;
+    r = strtol(p, NULL, 16);
+    
+    /* Read value */
+    p = strtok(NULL, " ");
+    if (p == NULL) return;
+    reg.data = strtol(p, NULL, 16);
+    
+    as3935_err(as3935_write((RegisterID_e)r, reg), "w");
+    
+    Serial.print("Reg 0x");
+    Serial.print(r, HEX);
+    Serial.print(" <= ");
+    Serial.println(reg.data, HEX);
+    
+    
+  /* Disable interrupts */  
+  } else if (c == 'i') {
+    attachInterrupt(0, NULL, RISING);
+    Serial.println("Interrupts disabled");
+
+
+  /* Enable interrupts */  
+  } else if (c == 'I') {
+    attachInterrupt(0, normalIsr, RISING);
+    Serial.println("Interrupts enabled");
+
+
+  /* Set gain */  
+  } else if (c == 'G') {
+    p = strtok(NULL, " ");
+    if (p == NULL) return;
+    val = strtol(p, NULL, 16);
+    
+    as3935_err(as3935_set_afe(val), "G");
+    
+    Serial.print("Gain <= ");
+    Serial.println(val, HEX);
+
+
+  /* Get gain */  
+  } else if (c == 'g') {
+    
+    as3935_err(as3935_get_afe(&val), "g");
+    
+    Serial.print("Gain = ");
+    Serial.println(val, HEX);
+
+
+  /* Set WDTH threshold */  
+  } else if (c == 'T') {
+    p = strtok(NULL, " ");
+    if (p == NULL) return;
+    val = strtol(p, NULL, 16);
+    
+    as3935_err(as3935_set_watchdog_threshold(val), "T");
+    
+    Serial.print("WDTH <= ");
+    Serial.println(val, HEX);
+
+  /* Get WDTH threshold */  
+  } else if (c == 't') {
+    
+    as3935_err(as3935_get_watchdog_threshold(&val), "t");
+    
+    Serial.print("WDTH = ");
+    Serial.println(val, HEX);
+
+
+  /* Set Spike threshold */  
+  } else if (c == 'S') {
+    p = strtok(NULL, " ");
+    if (p == NULL) return;
+    val = strtol(p, NULL, 16);
+    
+    as3935_err(as3935_set_spike_rejection(val), "S");
+    
+    Serial.print("SREJ <= ");
+    Serial.println(val, HEX);
+
+
+  /* Get Spike threshold */  
+  } else if (c == 's') {
+    
+    as3935_err(as3935_get_spike_rejection(&val), "s");
+    
+    Serial.print("SREJ = ");
+    Serial.println(val, HEX);
+
+
+  /* Set noise floor level */  
+  } else if (c == 'N') {
+    p = strtok(NULL, " ");
+    if (p == NULL) return;
+    val = strtol(p, NULL, 16);
+    
+    as3935_err(as3935_set_noise_floor_level(val), "N");
+    
+    Serial.print("NF_LEV <= ");
+    Serial.println(val, HEX);
+
+
+  /* Get noise floor level */  
+  } else if (c == 'n') {
+    
+    as3935_err(as3935_get_noise_floor_level(&val), "n");
+    
+    Serial.print("NF_LEV = ");
+    Serial.println(val, HEX);
+
+
+#ifdef USE_I2C
+  /* Set I2C address */  
+  } else if (c == 'Q') {
+    p = strtok(NULL, " ");
+    if (p == NULL) return;
+    val = strtol(p, NULL, 16);
+    
+    as3935_addr = val;
+    
+    Serial.print("I2C addr <= ");
+    Serial.println(val, HEX);
+
+
+  /* Get I2C address */  
+  } else if (c == 'q') {
+    Serial.print("I2C addr = ");
+    Serial.println(as3935_addr, HEX);
+#endif        
+    
+  /* Dump all registers */  
+  } else if (c == 'D') {
+    as3935_err(as3935_dump(0x0, 0x33), "D");
+    
+  /* Dump top registers */  
+  } else if (c == 'd') {
+    as3935_err(as3935_dump(0x0, 0x9), "d");
+    
+  /* Force a Reset */  
+  } else if (c == 'R') {
+    as3935_err(as3935_reset_registers(), "R");
+    Serial.println("Chip reset");
+    
+  /* Force a calibration */  
+  } else if (c == 'c') {
+    
+    calResult = calibrate();
+
+    /* Process calibration results */
+    if (calResult == 1) {
+      Serial.println("Calibration passed");
+    } else {
+      Serial.println("Calibration failed");
+    }      
+  
+  /* Force a BIT */  
+  } else if (c == 'b') {
+    
+    /* Run BIT */
+    bitResults = bitTest();
+
+    /* Process BIT results */
+    if (bitResults == 1) {
+      Serial.println("BIT passed");
+    } else {
+      Serial.println("BIT failed");
+    }
+    
+  /* Force an long alarm */  
+  } else if (c == 'A') {
+    startAlarm(now, 1);
+    Serial.println("Long alarm");
+    
+  /* Force an short alarm */  
+  } else if (c == 'a') {
+    startAlarm(now, 40);
+    Serial.println("Short alarm");
+    
+  /* Reenable alarm */  
+  } else if (c == 'S') {
+    silence = false;
+    Serial.println("Alarm activated");
+    
+  /* Silence alarm */  
+  } else if (c == 's') {
+    silence = true;
+    Serial.println("Alarm silenced");
+    
+  } else {
+    /* Ignore anything else */
+  }
+}
 
 /**********************************************************************
  *
@@ -588,7 +835,7 @@ INT8U bitTest(void) {
   attachInterrupt(0, normalIsr, RISING);
   
   /* Dump registers for review */
-  as3935_err(as3935_dump(0, 0x33), "cal");
+  as3935_err(as3935_dump(0, 0x9), "cal");
 
   return retval;
 

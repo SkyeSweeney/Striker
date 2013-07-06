@@ -1,7 +1,8 @@
 #ifndef __as3935_h
 #define __as3935_h
 
-#define AS3935_ADDR 0x00   // For embedded Adventures board
+#define EAR1_AS3935_ADDR (0x00<<1)   // For embedded Adventures board Rev 1
+#define EAR2_AS3935_ADDR (0x03<<1)   // For embedded Adventures board Rev 2
     
 #define AS3935_INDOOR_GAIN       0x12
 #define AS3935_OUTDOOR_GAIN      0x0E
@@ -156,6 +157,7 @@ INT8U               as3935_calibrate(void);
 INT8U               as3935_dump(INT8U s, INT8U n);
 INT8U               as3935_calibrate_rco(void);
 
+extern INT8U as3935_addr;
 
 
 #endif
