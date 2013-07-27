@@ -54,12 +54,12 @@ INT8U io_read(RegisterID_e reg, REG_u *val)
   c = SPI.transfer(((INT8U)reg&0x3f) | 0x40);
   
   /* Read value */
-  c = SPI.transfer(0x00);
+  val->data = SPI.transfer(0x00);
   
   /* Disable chip select */
   digitalWrite(SS_PIN, HIGH);
   
-  return(c);
+  return(0);
 #endif
 }
 
@@ -85,13 +85,15 @@ INT8U io_write(RegisterID_e reg, REG_u val)
   digitalWrite(SS_PIN, LOW);
   
   /* Write register address with read bit set */
-  err = SPI.transfer(((INT8U)reg & 0x3f) | 0x00);
+  (void)SPI.transfer(((INT8U)reg & 0x3f) | 0x00);
   
   /* write value */
-  err = SPI.transfer(val.data);
+  (void)SPI.transfer(val.data);
   
   /* Disable chip select */
   digitalWrite(SS_PIN, HIGH);
+  
+  return(0);
   
 #endif
 }

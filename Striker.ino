@@ -231,6 +231,7 @@ void loop(void) {
     
     /* Get the character */
     c = Serial.read();
+    //Serial.println(c);
     
     /* If end of string */
     if (c == '\r') {
@@ -648,6 +649,7 @@ void parseCommand(void) {
     
   } else {
     /* Ignore anything else */
+    Serial.println("Unknown command");
   }
 }
 
