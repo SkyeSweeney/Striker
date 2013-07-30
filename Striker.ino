@@ -285,18 +285,18 @@ void loop(void) {
 
       case INT_STRIKE:
         Serial.println("Strike");
-                
-        /* Dump registers for review */
-        as3935_err(as3935_dump(0, 0x9), "strike");
 
         as3935_err(as3935_get_energy_calc(&power), "get-power");
         as3935_err(as3935_get_storm_distance(&dist), "get-dist");
+        km = determineDistance(dist);
         Serial.print("Pwr: ");
         Serial.print(power);
-        Serial.print(" Dist: ");
-        km = determineDistance(dist);
+        Serial.print(", Dist: ");
         Serial.print(km);
         Serial.println("");
+        
+        /* Dump registers for review */
+        as3935_err(as3935_dump(0, 0x9), "strike");
         
         startAlarm(now, km);
 
@@ -440,6 +440,7 @@ void parseCommand(void) {
     Serial.println(" N val - Set noise level");
     Serial.println(" q addr - Set I2C address");
     Serial.println(" Q - Get I2C address");
+    Serial.println(" F - Force a strike");
     
   /* Read register */  
   } else if (c == 'r') {
@@ -646,6 +647,11 @@ void parseCommand(void) {
   } else if (c == 's') {
     silence = true;
     Serial.println("Alarm silenced");
+    
+  /* Force a strike */  
+  } else if (c == 'F') {
+    isrFlag = 1;
+    Serial.println("Force Strike");
     
   } else {
     /* Ignore anything else */

@@ -317,23 +317,23 @@ INT8U as3935_get_energy_calc(INT32U *val) {
   INT8U    err;
 
   *val = 0;
-  e.bits8[0] = 0;
+  e.bits8[3] = 0;
   
   //  REG0x06[4:0] S_LIG_MM
   err = io_read(REG06, &reg6);
   if (err == 0) {
     
-    e.bits8[1] = reg6.R6.S_LIG_MM;
+    e.bits8[2] = reg6.R6.S_LIG_MM;
     
     //   REG0x05[7:0] S_LIG_M
     err = io_read(REG05, &reg);
     if (err == 0) {
-      e.bits8[2] = reg.data;
+      e.bits8[1] = reg.data;
       
       //  REG0x04[7:0]  S_LIG_L
       err = io_read(REG04, &reg);
       if (err == 0) {
-        e.bits8[3] = reg.data;
+        e.bits8[0] = reg.data;
       
         *val = e.val;
       }
