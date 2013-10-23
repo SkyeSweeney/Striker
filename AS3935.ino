@@ -313,7 +313,7 @@ INT8U as3935_calibrate_rco(void) {
  *********************************************************************/
 INT8U as3935_get_energy_calc(INT32U *val) {
   Energy_u e;
-  REG_u    reg, reg6;
+  REG_u    reg4, reg5, reg6;
   INT8U    err;
 
   *val = 0;
@@ -326,19 +326,35 @@ INT8U as3935_get_energy_calc(INT32U *val) {
     e.bits8[2] = reg6.R6.S_LIG_MM;
     
     //   REG0x05[7:0] S_LIG_M
-    err = io_read(REG05, &reg);
+    err = io_read(REG05, &reg5);
     if (err == 0) {
-      e.bits8[1] = reg.data;
+      e.bits8[1] = reg5.data;
       
       //  REG0x04[7:0]  S_LIG_L
-      err = io_read(REG04, &reg);
+      err = io_read(REG04, &reg4);
       if (err == 0) {
-        e.bits8[0] = reg.data;
+        e.bits8[0] = reg4.data;
       
         *val = e.val;
       }
     }
   }
+  Serial.print("ebits: ");
+  Serial.print(reg4.data);
+  Serial.print(" ");
+  Serial.print(reg5.data);
+  Serial.print(" ");
+  Serial.print(reg6.data);
+  Serial.print(" ");
+  Serial.print(e.bits8[0]);
+  Serial.print(" ");
+  Serial.print(e.bits8[1]);
+  Serial.print(" ");
+  Serial.print(e.bits8[2]);
+  Serial.print(" ");
+  Serial.print(e.bits8[3]);
+  Serial.println("");
+  
   return(err);
 }
 

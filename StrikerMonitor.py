@@ -112,7 +112,7 @@ class Furnace:
             # Get the current time
             now = time.time()
 
-            txt = ("%.3f, %s")%(now, s)
+            txt = ("%.3f, %s, %s")%(now, time.asctime(), s)
 	    self.logText(txt)
 
             i = 0
